@@ -3,19 +3,29 @@ package cloudflare
 import cf "github.com/cloudflare/cloudflare-go"
 
 type Updater struct {
+	IPv4Zone string
+	IPv6Zone string
+
+	init bool
 	api *cf.API
 }
 
-func NewUpdater(email string, key string) *Updater {
-	u := &Updater{}
+func NewUpdater() *Updater {
+	return &Updater{
+		init: false,
+	}
+}
 
-	api, err := cf.New(key, email)
+func (u *Updater) Init(token string) error {
+	api, err := cf.NewWithAPIToken(token)
 
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	u.api = api
 
-	return u
+	u.init = true
+
+	return nil
 }

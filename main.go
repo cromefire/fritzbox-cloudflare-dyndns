@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"github.com/adrianrudnik/fritzbox-cloudflare-dyndns/pkg/avm"
 	"github.com/adrianrudnik/fritzbox-cloudflare-dyndns/pkg/cloudflare"
 	"github.com/adrianrudnik/fritzbox-cloudflare-dyndns/pkg/dyndns"
@@ -21,22 +20,11 @@ func main() {
 	// Load any env variables defined in .env.dev files
 	_ = godotenv.Load(".env", ".env.dev")
 
-	fritzbox := newFritzBox()
-
-	ipv4, err := fritzbox.GetWanIpv4()
-	if err != nil {
-		panic(err)
-	}
-
-	ipv6, err := fritzbox.GetwanIpv6()
-	if err != nil {
-		panic(err)
-	}
-
 	updater := newUpdater()
 	updater.StartWorker()
 
-	startDynDnsServer(updater.In)
+	startPollServer(updater.In)
+	startPushServer(updater.In)
 
 	shutdown := make(chan os.Signal)
 
@@ -84,18 +72,20 @@ func newFritzBox() *avm.FritzBox {
 }
 
 func newUpdater() *cloudflare.Updater {
+	u := cloudflare.NewUpdater()
+
 	email := os.Getenv("CLOUDFLARE_API_EMAIL")
 
 	if email == "" {
 		log.Info("Env CLOUDFLARE_API_TOKEN not found, disabling CloudFlare updates")
-		return nil
+		return u
 	}
 
 	key := os.Getenv("CLOUDFLARE_API_KEY")
 
 	if key == "" {
 		log.Info("Env CLOUDFLARE_API_KEY not found, disabling CloudFlare updates")
-		return nil
+		return u
 	}
 
 	ipv4Zone := os.Getenv("CLOUDFLARE_ZONES_IPV4")
@@ -103,10 +93,8 @@ func newUpdater() *cloudflare.Updater {
 
 	if ipv4Zone == "" && ipv6Zone == "" {
 		log.Warn("Env CLOUDFLARE_ZONES_IPV4 and CLOUDFLARE_ZONES_IPV6 not found, disabling CloudFlare updates")
-		return nil
+		return u
 	}
-
-	u := cloudflare.NewUpdater()
 
 	if ipv4Zone != "" {
 		u.SetIPv4Zones(ipv4Zone)
@@ -120,13 +108,13 @@ func newUpdater() *cloudflare.Updater {
 
 	if err != nil {
 		log.WithError(err).Error("Failed to init Cloudflare updater, disabling CloudFlare updates")
-		return nil
+		return u
 	}
 
 	return u
 }
 
-func startDynDnsServer(out chan *net.IP) {
+func startPushServer(out chan<- *net.IP) {
 	bind := os.Getenv("DYNDNS_SERVER_BIND")
 
 	if bind == "" {
@@ -146,5 +134,65 @@ func startDynDnsServer(out chan *net.IP) {
 
 	go func() {
 		log.Fatal(s.ListenAndServe())
+	}()
+}
+
+func startPollServer(out chan<- *net.IP) {
+	fritzbox := newFritzBox()
+
+	// Import endpoint polling interval duration
+	interval := os.Getenv("FRITZBOX_ENDPOINT_INTERVAL")
+
+	var ticker *time.Ticker
+
+	if interval != "" {
+		v, err := time.ParseDuration(interval)
+
+		if err != nil {
+			log.WithError(err).Warn("Failed to parse FRITZBOX_ENDPOINT_INTERVAL, using defaults")
+			ticker = time.NewTicker(300 * time.Second)
+		} else {
+			ticker = time.NewTicker(v)
+		}
+	} else {
+		log.Info("Env FRITZBOX_ENDPOINT_INTERVAL not found, disabling polling")
+		return
+	}
+
+	go func() {
+		lastV4 := net.IP{}
+		lastV6 := net.IP{}
+
+		for {
+			select {
+			case <-ticker.C:
+				log.Debug("Polling WAN IPs from router")
+
+				ipv4, err := fritzbox.GetWanIpv4()
+
+				if err != nil {
+					log.WithError(err).Warn("Failed to poll WAN IPv4 from router")
+				} else {
+					if !lastV4.Equal(ipv4) {
+						log.WithField("ipv4", ipv4).Info("New WAN IPv4 found")
+						out <- &ipv4
+						lastV4 = ipv4
+					}
+
+				}
+
+				ipv6, err := fritzbox.GetwanIpv6()
+
+				if err != nil {
+					log.WithError(err).Warn("Failed to poll WAN IPv6 from router")
+				} else {
+					if !lastV6.Equal(ipv6) {
+						log.WithField("ipv6", ipv6).Info("New WAN IPv6 found")
+						out <- &ipv6
+						lastV6 = ipv6
+					}
+				}
+			}
+		}
 	}()
 }

@@ -8,13 +8,13 @@ import (
 
 type Server struct {
 	log *log.Entry
-	out chan *net.IP
+	out chan<- *net.IP
 
 	Username string
 	Password string
 }
 
-func NewServer(out chan *net.IP) *Server {
+func NewServer(out chan<- *net.IP) *Server {
 	return &Server{
 		log: log.WithField("module", "dyndns"),
 		out: out,
@@ -46,14 +46,14 @@ func (s *Server) Handler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Parse IPv4
-	ipv4 := net.ParseIP(params.Get("ipaddr"))
+	ipv4 := net.ParseIP(params.Get("v4"))
 	if ipv4 != nil && ipv4.To4() != nil {
 		s.log.WithField("ipv4", ipv4).Info("Forwarding update request for IPv4")
 		s.out <- &ipv4
 	}
 
 	// Parse IPv6
-	ipv6 := net.ParseIP(params.Get("ip6addr"))
+	ipv6 := net.ParseIP(params.Get("v6"))
 	if ipv6 != nil && ipv6.To4() == nil {
 		s.log.WithField("ipv6", ipv6).Info("Forwarding update request for IPv6")
 		s.out <- &ipv6

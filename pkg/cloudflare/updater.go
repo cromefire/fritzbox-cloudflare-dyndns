@@ -105,6 +105,10 @@ func (u *Updater) Init(email string, key string) error {
 }
 
 func (u *Updater) StartWorker() {
+	if !u.init {
+		return
+	}
+
 	go u.spawnWorker()
 }
 
@@ -112,7 +116,7 @@ func (u *Updater) spawnWorker() {
 	for {
 		select {
 		case ip := <-u.In:
-			log.WithField("ip", ip).Info("Received DynDns update request")
+			log.WithField("ip", ip).Info("Received update request")
 
 			for _, action := range u.actions {
 				// Skip IPv6 action mismatching IP version
@@ -126,7 +130,7 @@ func (u *Updater) spawnWorker() {
 				}
 
 				// Create detailed sub-logger for this action
-				alog := log.WithField("action", fmt.Sprintf("%s/IPv%d", action.DnsRecord, action.IpVersion))
+				alog := log.WithField("domain", fmt.Sprintf("%s/IPv%d", action.DnsRecord, action.IpVersion))
 
 				// Decide record type on ip version
 				var recordType string

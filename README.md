@@ -6,6 +6,7 @@ This project has some simple goals:
 - Allow for two different combined strategies: Polling (through FRITZ!Box SOAP-API) and Pushing (FRITZ!Box Custom-DynDns setting).
 - Allow multiple domains to be updated with new A (IPv4) and AAAA (IPv6) records
 - Push those IP changes directly to CloudFlare DNS
+- Deploy in docker compose
 
 If this fits for you, skim over the CNAME workaround if this is a better solution for you, otherwise feel free to visit
 the appropriate strategy section of this document and find out how to configure it correctly.
@@ -70,6 +71,7 @@ In your `.env` file or your system environment variables you can be configured:
 | --- | --- |
 | FRITZBOX_ENDPOINT_URL | optional, how can we reach the router, i.e. `http://fritz.box:49000`, the port should be 49000 anyway. |
 | FRITZBOX_ENDPOINT_TIMEOUT | optional, a duration we give the router to respond, i.e. `10s`. |
+| FRITZBOX_ENDPOINT_INTERVAL | optional, a duration how often we want to poll the WAN IPs from the router, i.e. `120s` |
 
 You can try the endpoint URL in the browser to make sure you have the correct port, you should receive an `404 ERR_NOT_FOUND`. 
 
@@ -90,9 +92,23 @@ In your `.env` file or your system environment variables you can be configured:
 This service allows to update multiple records, an advanced example would be:
 
 ```env
-CLOUDFLARE_ZONES_IPV4=ipv4.example.com,ip.example.com,mail.example.com
-CLOUDFLARE_ZONES_IPV6=ipv6.example.com,ip.example.com,mail.example.com
+CLOUDFLARE_ZONES_IPV4=ipv4.example.com,ip.example.com,server-01.dev.local
+CLOUDFLARE_ZONES_IPV6=ipv6.example.com,ip.example.com,server-01.dev.local
 ```
 
 Considering the example call `http://192.168.0.2/ip?v4=127.0.0.1&v6=::1` every IPv4 listed zone would be updated to
 `127.0.0.1` and every IPv6 listed one to `::1`.
+
+## Docker setup
+
+## Docker build
+
+More raw approach would be to build and run it yourself:
+
+```
+docker build -t fritzbox-cloudflare-dyndns .
+docker run --rm -it -p 8888:8080 fritzbox-cloudflare-dyndns
+```
+
+If you leave `CLOUDFLARE_*` unconfigured, pushing to CloudFlare will be disabled for testing purposes, so try to
+trigger it by calling `http://127.0.0.1:8888/ip?v4=127.0.0.1&v6=::1` and review the logs.

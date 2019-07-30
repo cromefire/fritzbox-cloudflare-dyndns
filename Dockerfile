@@ -34,7 +34,10 @@ ENV CLOUDFLARE_ZONES_IPV6 ""
 
 WORKDIR /app
 
-RUN apk add --update --no-cache ca-certificates tzdata && update-ca-certificates
+RUN set -ex \
+    && apk add --update --no-cache ca-certificates tzdata \
+    && update-ca-certificates \
+    && rm -rf /var/cache/apk/*
 
 COPY --from=server_build /appbuild/server /app/server
 

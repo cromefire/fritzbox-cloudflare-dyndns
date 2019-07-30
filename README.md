@@ -96,10 +96,33 @@ CLOUDFLARE_ZONES_IPV4=ipv4.example.com,ip.example.com,server-01.dev.local
 CLOUDFLARE_ZONES_IPV6=ipv6.example.com,ip.example.com,server-01.dev.local
 ```
 
-Considering the example call `http://192.168.0.2/ip?v4=127.0.0.1&v6=::1` every IPv4 listed zone would be updated to
+Considering the example call `http://192.168.0.2:8080/ip?v4=127.0.0.1&v6=::1` every IPv4 listed zone would be updated to
 `127.0.0.1` and every IPv6 listed one to `::1`.
 
-## Docker setup
+## Docker compose setup
+
+Here is an example `docker-compose.yml` with all features activated:
+
+```
+version: '3.7'
+
+services:
+  updater:
+    image: adrianrudnik/fritzbox-cloudflare-dyndns
+    # build:
+    #   context: .
+    environment:
+      - FRITZBOX_ENDPOINT_URL=http://fritz.box:49000
+      - FRITZBOX_ENDPOINT_TIMEOUT=30s
+      - FRITZBOX_ENDPOINT_INTERVAL=3s
+      - CLOUDFLARE_API_EMAIL=max@example.com
+      - CLOUDFLARE_API_KEY=demo
+      - CLOUDFLARE_ZONES_IPV4=test.example.com
+      - CLOUDFLARE_ZONES_IPV6=test.example.com
+    ports:
+      - 8080:8080
+```
+
 
 ## Docker build
 

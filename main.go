@@ -29,6 +29,8 @@ func main() {
 	}
 
 	fmt.Printf("%s und %s", ipv4, ipv6)
+
+	_ = newUpdater()
 }
 
 func newFritzBox() *avm.FritzBox {
@@ -67,32 +69,39 @@ func newFritzBox() *avm.FritzBox {
 }
 
 func newUpdater() *cloudflare.Updater {
-	token := os.Getenv("CLOUDFLARE_API_TOKEN")
+	email := os.Getenv("CLOUDFLARE_API_EMAIL")
 
-	u := newUpdater()
-
-	if token == "" {
+	if email == "" {
 		log.Info("Env CLOUDFLARE_API_TOKEN not found, disabling CloudFlare updates")
 		return nil
 	}
 
-	ipv4Zone := os.Getenv("CLOUDFLARE_ZONE_IPV4")
-	ipv6Zone := os.Getenv("CLOUDFLARE_ZONE_IPV6")
+	key := os.Getenv("CLOUDFLARE_API_KEY")
 
-	if ipv4Zone == "" && ipv6Zone == "" {
-		log.Warn("Env CLOUDFLARE_ZONE_IPV4 and CLOUDFLARE_ZONE_IPV6 not found, disabling CloudFlare updates")
+	if key == "" {
+		log.Info("Env CLOUDFLARE_API_KEY not found, disabling CloudFlare updates")
 		return nil
 	}
 
+	ipv4Zone := os.Getenv("CLOUDFLARE_ZONES_IPV4")
+	ipv6Zone := os.Getenv("CLOUDFLARE_ZONES_IPV6")
+
+	if ipv4Zone == "" && ipv6Zone == "" {
+		log.Warn("Env CLOUDFLARE_ZONES_IPV4 and CLOUDFLARE_ZONES_IPV6 not found, disabling CloudFlare updates")
+		return nil
+	}
+
+	u := cloudflare.NewUpdater()
+
 	if ipv4Zone != "" {
-		u.IPv4Zone = ipv4Zone
+		u.SetIPv4Zones(ipv4Zone)
 	}
 
 	if ipv6Zone != "" {
-		u.IPv6Zone = ipv6Zone
+		u.SetIPv6Zones(ipv6Zone)
 	}
 
-	err := u.Init(token)
+	err := u.Init(email, key)
 
 	if err != nil {
 		log.WithError(err).Error("Failed to init Cloudflare updater, disabling CloudFlare updates")

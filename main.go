@@ -11,8 +11,8 @@ import (
 )
 
 func main() {
-	// Load any env variables defined in .env files
-	_ = godotenv.Load()
+	// Load any env variables defined in .env.dev files
+	_ = godotenv.Load(".env", ".env.dev")
 
 	fb := avm.NewFritzBox()
 

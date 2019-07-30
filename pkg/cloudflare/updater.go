@@ -1,16 +1,18 @@
 package cloudflare
 
 import (
+	"fmt"
 	cf "github.com/cloudflare/cloudflare-go"
+	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/publicsuffix"
+	"net"
 	"strings"
 )
 
 type Action struct {
-	DnsRecord      string
-	CloudflareZone string
-	UpdateOnIpv4   bool
-	UpdateOnIpv6   bool
+	DnsRecord string
+	CfZoneId  string
+	IpVersion int
 }
 
 type Updater struct {
@@ -21,11 +23,14 @@ type Updater struct {
 
 	init bool
 	api  *cf.API
+
+	In chan *net.IP
 }
 
 func NewUpdater() *Updater {
 	return &Updater{
 		init: false,
+		In:   make(chan *net.IP, 10),
 	}
 }
 
@@ -75,10 +80,9 @@ func (u *Updater) Init(email string, key string) error {
 	// Now create an updater action list
 	for _, val := range u.ipv4Zones {
 		a := &Action{
-			DnsRecord:      val,
-			CloudflareZone: zoneIdMap[val],
-			UpdateOnIpv4:   true,
-			UpdateOnIpv6:   false,
+			DnsRecord: val,
+			CfZoneId:  zoneIdMap[val],
+			IpVersion: 4,
 		}
 
 		u.actions = append(u.actions, a)
@@ -86,10 +90,9 @@ func (u *Updater) Init(email string, key string) error {
 
 	for _, val := range u.ipv6Zones {
 		a := &Action{
-			DnsRecord:      val,
-			CloudflareZone: zoneIdMap[val],
-			UpdateOnIpv4:   false,
-			UpdateOnIpv6:   true,
+			DnsRecord: val,
+			CfZoneId:  zoneIdMap[val],
+			IpVersion: 6,
 		}
 
 		u.actions = append(u.actions, a)
@@ -99,4 +102,84 @@ func (u *Updater) Init(email string, key string) error {
 	u.init = true
 
 	return nil
+}
+
+func (u *Updater) StartWorker() {
+	go u.spawnWorker()
+}
+
+func (u *Updater) spawnWorker() {
+	for {
+		select {
+		case ip := <-u.In:
+			log.WithField("ip", ip).Info("Received DynDns update request")
+
+			for _, action := range u.actions {
+				// Skip IPv6 action mismatching IP version
+				if ip.To4() == nil && action.IpVersion != 6 {
+					continue
+				}
+
+				// Skip IPv4 action mismatching IP version
+				if ip.To4() != nil && action.IpVersion == 6 {
+					continue
+				}
+
+				// Create detailed sub-logger for this action
+				alog := log.WithField("action", fmt.Sprintf("%s/IPv%d", action.DnsRecord, action.IpVersion))
+
+				// Decide record type on ip version
+				var recordType string
+
+				if ip.To4() == nil {
+					recordType = "AAAA"
+				} else {
+					recordType = "A"
+				}
+
+				// Research all current records matching the current scheme
+				records, err := u.api.DNSRecords(action.CfZoneId, cf.DNSRecord{
+					Type: recordType,
+					Name: action.DnsRecord,
+				})
+
+				if err != nil {
+					alog.WithError(err).Error("Action failed, could not research DNS records")
+					continue
+				}
+
+				// Create record if none were found
+				if len(records) == 0 {
+					alog.Info("Creating DNS record")
+
+					_, err := u.api.CreateDNSRecord(action.CfZoneId, cf.DNSRecord{
+						Type:      recordType,
+						Name:      action.DnsRecord,
+						Content:   ip.String(),
+						Proxied:   false,
+						TTL:       120,
+						ZoneID:    action.CfZoneId,
+					})
+
+					if err != nil {
+						alog.WithError(err).Error("Action failed, could not create DNS record")
+						continue
+					}
+				}
+
+				// Update existing records
+				for _, record := range records {
+					alog.WithField("record-id", record.ID).Info("Updating DNS record")
+
+					err := u.api.UpdateDNSRecord(action.CfZoneId, record.ID, cf.DNSRecord{Content: ip.String()})
+
+					if err != nil {
+						alog.WithError(err).Error("Action failed, could not update DNS record")
+						continue
+					}
+				}
+			}
+
+		}
+	}
 }

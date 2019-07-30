@@ -4,11 +4,16 @@ import (
 	"fmt"
 	"github.com/adrianrudnik/fritzbox-cloudflare-dyndns/pkg/avm"
 	"github.com/adrianrudnik/fritzbox-cloudflare-dyndns/pkg/cloudflare"
+	"github.com/adrianrudnik/fritzbox-cloudflare-dyndns/pkg/dyndns"
 	"github.com/joho/godotenv"
 	log "github.com/sirupsen/logrus"
+	"net"
+	"net/http"
 	"net/url"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -16,21 +21,31 @@ func main() {
 	// Load any env variables defined in .env.dev files
 	_ = godotenv.Load(".env", ".env.dev")
 
-	fb := newFritzBox()
+	fritzbox := newFritzBox()
 
-	ipv4, err := fb.GetWanIpv4()
+	ipv4, err := fritzbox.GetWanIpv4()
 	if err != nil {
 		panic(err)
 	}
 
-	ipv6, err := fb.GetwanIpv6()
+	ipv6, err := fritzbox.GetwanIpv6()
 	if err != nil {
 		panic(err)
 	}
 
-	fmt.Printf("%s und %s", ipv4, ipv6)
+	updater := newUpdater()
+	updater.StartWorker()
 
-	_ = newUpdater()
+	startDynDnsServer(updater.In)
+
+	shutdown := make(chan os.Signal)
+
+	signal.Notify(shutdown, syscall.SIGTERM)
+	signal.Notify(shutdown, syscall.SIGINT)
+
+	<-shutdown
+
+	log.Info("Shutdown detected")
 }
 
 func newFritzBox() *avm.FritzBox {
@@ -109,4 +124,27 @@ func newUpdater() *cloudflare.Updater {
 	}
 
 	return u
+}
+
+func startDynDnsServer(out chan *net.IP) {
+	bind := os.Getenv("DYNDNS_SERVER_BIND")
+
+	if bind == "" {
+		log.Info("Env DYNDNS_SERVER_BIND not found, disabling DynDns server")
+		return
+	}
+
+	server := dyndns.NewServer(out)
+	server.Username = os.Getenv("DYNDNS_SERVER_USERNAME")
+	server.Password = os.Getenv("DYNDNS_SERVER_PASSWORD")
+
+	s := &http.Server{
+		Addr: bind,
+	}
+
+	http.HandleFunc("/ip", server.Handler)
+
+	go func() {
+		log.Fatal(s.ListenAndServe())
+	}()
 }

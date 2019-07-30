@@ -43,8 +43,6 @@ func (fb *FritzBox) GetWanIpv4() (net.IP, error) {
 
 	body, err := ioutil.ReadAll(response.Body)
 
-	fmt.Println(string(body))
-
 	if err != nil {
 		return nil, err
 	}
@@ -79,8 +77,6 @@ func (fb *FritzBox) GetwanIpv6() (net.IP, error) {
 	}
 
 	body, err := ioutil.ReadAll(response.Body)
-
-	fmt.Println(string(body))
 
 	if err != nil {
 		return nil, err

@@ -34,6 +34,8 @@ ENV CLOUDFLARE_ZONES_IPV6 ""
 
 WORKDIR /app
 
+RUN apk add --update --no-cache ca-certificates tzdata && update-ca-certificates
+
 COPY --from=server_build /appbuild/server /app/server
 
 EXPOSE 8080

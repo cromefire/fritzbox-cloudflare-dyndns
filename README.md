@@ -51,9 +51,9 @@ Now configure the FRITZ!Box router to push IP changes towards this service. Log 
 | Property | Description / Value |
 | --- | --- |
 | Update-URL | http://[server-ip]/ip?v4=\<ipaddr\>&v6=\<ip6addr\> |
-| Domain | Leave blank, no meaning |
-| Username | Leave blank if `DYNDNS_SERVER_USERNAME` env is unset |
-| Password | Leave blank if `DYNDNS_SERVER_PASSWORD` env is unset |
+| Domain | Enter at least one domain name so the router can probe if the update was successfully |
+| Username | Enter '_' if  `DYNDNS_SERVER_USERNAME` env is unset |
+| Password | Enter '_' if `DYNDNS_SERVER_PASSWORD` env is unset |
 
 If you specified credentials you need to append them as additional GET parameters into the Update-URL like `&username=user&password=pass"`.
 

@@ -77,7 +77,7 @@ func newUpdater() *cloudflare.Updater {
 	email := os.Getenv("CLOUDFLARE_API_EMAIL")
 
 	if email == "" {
-		log.Info("Env CLOUDFLARE_API_TOKEN not found, disabling CloudFlare updates")
+		log.Info("Env CLOUDFLARE_API_EMAIL not found, disabling CloudFlare updates")
 		return u
 	}
 
@@ -90,6 +90,7 @@ func newUpdater() *cloudflare.Updater {
 
 	ipv4Zone := os.Getenv("CLOUDFLARE_ZONES_IPV4")
 	ipv6Zone := os.Getenv("CLOUDFLARE_ZONES_IPV6")
+	ipv6LocalAddress := os.Getenv("CLOUDFLARE_LOCAL_ADDRESS_IPV6")
 
 	if ipv4Zone == "" && ipv6Zone == "" {
 		log.Warn("Env CLOUDFLARE_ZONES_IPV4 and CLOUDFLARE_ZONES_IPV6 not found, disabling CloudFlare updates")
@@ -102,6 +103,15 @@ func newUpdater() *cloudflare.Updater {
 
 	if ipv6Zone != "" {
 		u.SetIPv6Zones(ipv6Zone)
+	}
+
+	if ipv6LocalAddress != "" {
+		localIp := net.ParseIP(ipv6LocalAddress)
+		if localIp == nil {
+			log.Error("Failed to parse IP from CLOUDFLARE_LOCAL_ADDRESS_IPV6, disabling CloudFlare updates")
+			return u
+		}
+		u.SetIPv6LocalAddress(&localIp)
 	}
 
 	err := u.Init(email, key)

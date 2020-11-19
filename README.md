@@ -18,7 +18,7 @@ Before you try this service evaluate a cheap workaround, as it does not require 
 Have dynamic IP updates by using a CNAME record to your myfritz address, found in `Admin > Internet > MyFRITZ-Account`.
 It should look like `[hash].myfritz.net`.
 
-This basic example of a BIND DNS entry would make `intranet.example.com` auto update the current IP: 
+This basic example of a BIND DNS entry would make `intranet.example.com` auto update the current IP:
 
 ```
 $TTL 60
@@ -73,7 +73,7 @@ In your `.env` file or your system environment variables you can be configured:
 | FRITZBOX_ENDPOINT_TIMEOUT | optional, a duration we give the router to respond, i.e. `10s`. |
 | FRITZBOX_ENDPOINT_INTERVAL | optional, a duration how often we want to poll the WAN IPs from the router, i.e. `120s` |
 
-You can try the endpoint URL in the browser to make sure you have the correct port, you should receive an `404 ERR_NOT_FOUND`. 
+You can try the endpoint URL in the browser to make sure you have the correct port, you should receive an `404 ERR_NOT_FOUND`.
 
 ## Cloudflare setup
 
@@ -88,6 +88,7 @@ In your `.env` file or your system environment variables you can be configured:
 | CLOUDFLARE_API_KEY | required, your CloudFlare Global API key |
 | CLOUDFLARE_ZONES_IPV4 | comma-separated list of domains to update with new IPv4 addresses |
 | CLOUDFLARE_ZONES_IPV6 | comma-separated list of domains to update with new IPv6 addresses |
+| CLOUDFLARE_LOCAL_ADDRESS_IPV6 | optional, enter an IP of a local device here (e.g. `::1234:5678:90ab:cdef`) to register that device's IPv6 IP with cloudflare instead of your router's one (make sure your always assign the same local IP to that device, this can be done via the FRITZ!Box) |
 
 This service allows to update multiple records, an advanced example would be:
 

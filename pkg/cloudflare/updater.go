@@ -16,8 +16,9 @@ type Action struct {
 }
 
 type Updater struct {
-	ipv4Zones []string
-	ipv6Zones []string
+	ipv4Zones        []string
+	ipv6Zones        []string
+	ipv6LocalAddress *net.IP
 
 	actions []*Action
 
@@ -42,6 +43,10 @@ func (u *Updater) SetIPv6Zones(zones string) {
 	u.ipv6Zones = strings.Split(zones, ",")
 }
 
+func (u *Updater) SetIPv6LocalAddress(localAddress *net.IP) {
+	u.ipv6LocalAddress = localAddress
+}
+
 func (u *Updater) Init(email string, key string) error {
 	// api, err := cf.NewWithAPIToken(token)
 	api, err := cf.New(key, email)
@@ -61,7 +66,7 @@ func (u *Updater) Init(email string, key string) error {
 		zoneIdMap[val] = ""
 	}
 
-	for val, _ := range zoneIdMap {
+	for val := range zoneIdMap {
 		zone, err := publicsuffix.EffectiveTLDPlusOne(val)
 
 		if err != nil {
@@ -136,6 +141,12 @@ func (u *Updater) spawnWorker() {
 				var recordType string
 
 				if ip.To4() == nil {
+					if u.ipv6LocalAddress != nil {
+						for i := 8; i < 16; i++ {
+							(*ip)[i] = (*u.ipv6LocalAddress)[i]
+						}
+					}
+
 					recordType = "AAAA"
 				} else {
 					recordType = "A"
@@ -157,12 +168,12 @@ func (u *Updater) spawnWorker() {
 					alog.Info("Creating DNS record")
 
 					_, err := u.api.CreateDNSRecord(action.CfZoneId, cf.DNSRecord{
-						Type:      recordType,
-						Name:      action.DnsRecord,
-						Content:   ip.String(),
-						Proxied:   false,
-						TTL:       120,
-						ZoneID:    action.CfZoneId,
+						Type:    recordType,
+						Name:    action.DnsRecord,
+						Content: ip.String(),
+						Proxied: false,
+						TTL:     120,
+						ZoneID:  action.CfZoneId,
 					})
 
 					if err != nil {

@@ -173,35 +173,41 @@ func startPollServer(out chan<- *net.IP) {
 		lastV4 := net.IP{}
 		lastV6 := net.IP{}
 
+		poll := func() {
+			log.Debug("Polling WAN IPs from router")
+
+			ipv4, err := fritzbox.GetWanIpv4()
+
+			if err != nil {
+				log.WithError(err).Warn("Failed to poll WAN IPv4 from router")
+			} else {
+				if !lastV4.Equal(ipv4) {
+					log.WithField("ipv4", ipv4).Info("New WAN IPv4 found")
+					out <- &ipv4
+					lastV4 = ipv4
+				}
+
+			}
+
+			ipv6, err := fritzbox.GetwanIpv6()
+
+			if err != nil {
+				log.WithError(err).Warn("Failed to poll WAN IPv6 from router")
+			} else {
+				if !lastV6.Equal(ipv6) {
+					log.WithField("ipv6", ipv6).Info("New WAN IPv6 found")
+					out <- &ipv6
+					lastV6 = ipv6
+				}
+			}
+		}
+
+		poll()
+
 		for {
 			select {
 			case <-ticker.C:
-				log.Debug("Polling WAN IPs from router")
-
-				ipv4, err := fritzbox.GetWanIpv4()
-
-				if err != nil {
-					log.WithError(err).Warn("Failed to poll WAN IPv4 from router")
-				} else {
-					if !lastV4.Equal(ipv4) {
-						log.WithField("ipv4", ipv4).Info("New WAN IPv4 found")
-						out <- &ipv4
-						lastV4 = ipv4
-					}
-
-				}
-
-				ipv6, err := fritzbox.GetwanIpv6()
-
-				if err != nil {
-					log.WithError(err).Warn("Failed to poll WAN IPv6 from router")
-				} else {
-					if !lastV6.Equal(ipv6) {
-						log.WithField("ipv6", ipv6).Info("New WAN IPv6 found")
-						out <- &ipv6
-						lastV6 = ipv6
-					}
-				}
+				poll()
 			}
 		}
 	}()

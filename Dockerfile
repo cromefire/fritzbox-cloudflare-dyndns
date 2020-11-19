@@ -3,7 +3,7 @@ FROM golang:alpine as server_build
 # Add build deps
 RUN apk add --update gcc g++ git
 
-COPY go.mod /appbuild/
+COPY go.mod go.sum /appbuild/
 
 RUN set -ex \
     && cd /appbuild \

@@ -111,7 +111,7 @@ It should look something like this: `::1234:5678:90ab:cdef`
 
 | Variable name | Description |
 | --- | --- |
-| DEVICE_LOCAL_ADDRESS_IPV6 | required, enter the local |
+| DEVICE_LOCAL_ADDRESS_IPV6 | required, enter the local part of the device IP |
 
 ## Docker compose setup
 

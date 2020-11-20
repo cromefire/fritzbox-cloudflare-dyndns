@@ -50,12 +50,12 @@ Now configure the FRITZ!Box router to push IP changes towards this service. Log 
 
 | Property | Description / Value |
 | --- | --- |
-| Update-URL | http://[server-ip]/ip?v4=\<ipaddr\>&v6=\<ip6addr\> |
+| Update-URL | http://[server-ip]/ip?v4=\<ipaddr\>&v6=\<ip6addr\>&prefix=\<ip6lanprefix\> |
 | Domain | Enter at least one domain name so the router can probe if the update was successfully |
 | Username | Enter '_' if  `DYNDNS_SERVER_USERNAME` env is unset |
 | Password | Enter '_' if `DYNDNS_SERVER_PASSWORD` env is unset |
 
-If you specified credentials you need to append them as additional GET parameters into the Update-URL like `&username=user&password=pass"`.
+If you specified credentials you need to append them as additional GET parameters into the Update-URL like `&username=<user>&password=<pass>`.
 
 ### FRITZ!Box polling
 
@@ -88,7 +88,6 @@ In your `.env` file or your system environment variables you can be configured:
 | CLOUDFLARE_API_KEY | required, your CloudFlare Global API key |
 | CLOUDFLARE_ZONES_IPV4 | comma-separated list of domains to update with new IPv4 addresses |
 | CLOUDFLARE_ZONES_IPV6 | comma-separated list of domains to update with new IPv6 addresses |
-| CLOUDFLARE_LOCAL_ADDRESS_IPV6 | optional, enter an IP of a local device here (e.g. `::1234:5678:90ab:cdef`) to register that device's IPv6 IP with cloudflare instead of your router's one (make sure your always assign the same local IP to that device, this can be done via the FRITZ!Box) |
 
 This service allows to update multiple records, an advanced example would be:
 
@@ -99,6 +98,20 @@ CLOUDFLARE_ZONES_IPV6=ipv6.example.com,ip.example.com,server-01.dev.local
 
 Considering the example call `http://192.168.0.2:8080/ip?v4=127.0.0.1&v6=::1` every IPv4 listed zone would be updated to
 `127.0.0.1` and every IPv6 listed one to `::1`.
+
+## Register IPv6 for another device (port-forwarding)
+
+IPv6 port-forwarding works differently and so if you want to use it you have to add the following configuration.
+
+Warning: `FRITZBOX_ENDPOINT_URL` has to be set for this to work.
+
+To access a device via IPv6 you need to add it's global IPv6 address to cloudflare, for this to be calculated you need to find out the local part of it's IP.
+You can find out the local part of a device's IP, by going to the device's settings and looking at the `IPv6 Interface-ID`.
+It should look something like this: `::1234:5678:90ab:cdef`
+
+| Variable name | Description |
+| --- | --- |
+| DEVICE_LOCAL_ADDRESS_IPV6 | required, enter the local |
 
 ## Docker compose setup
 

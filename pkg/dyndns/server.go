@@ -7,17 +7,19 @@ import (
 )
 
 type Server struct {
-	log *log.Entry
-	out chan<- *net.IP
+	log     *log.Entry
+	out     chan<- *net.IP
+	localIp *net.IP
 
 	Username string
 	Password string
 }
 
-func NewServer(out chan<- *net.IP) *Server {
+func NewServer(out chan<- *net.IP, localIp *net.IP) *Server {
 	return &Server{
-		log: log.WithField("module", "dyndns"),
-		out: out,
+		log:     log.WithField("module", "dyndns"),
+		out:     out,
+		localIp: localIp,
 	}
 }
 
@@ -52,11 +54,30 @@ func (s *Server) Handler(w http.ResponseWriter, r *http.Request) {
 		s.out <- &ipv4
 	}
 
-	// Parse IPv6
-	ipv6 := net.ParseIP(params.Get("v6"))
-	if ipv6 != nil && ipv6.To4() == nil {
-		s.log.WithField("ipv6", ipv6).Info("Forwarding update request for IPv6")
-		s.out <- &ipv6
+	if s.localIp == nil {
+		// Parse IPv6
+		ipv6 := net.ParseIP(params.Get("v6"))
+		if ipv6 != nil && ipv6.To4() == nil {
+			s.log.WithField("ipv6", ipv6).Info("Forwarding update request for IPv6")
+			s.out <- &ipv6
+		}
+	} else {
+		// Parse Prefix
+		_, prefix, err := net.ParseCIDR(params.Get("prefix"))
+		if err != nil {
+			s.log.WithError(err).Warn("Failed to parse prefix")
+		} else {
+
+			constructedIp := make(net.IP, net.IPv6len)
+			copy(constructedIp, prefix.IP)
+
+			for i := 0; i < net.IPv6len; i++ {
+				constructedIp[i] = constructedIp[i] + (*s.localIp)[i]
+			}
+
+			s.log.WithField("prefix", prefix).WithField("ipv6", constructedIp).Info("Forwarding update request for IPv6")
+			s.out <- &constructedIp
+		}
 	}
 
 	w.WriteHeader(200)

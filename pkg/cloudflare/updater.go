@@ -16,9 +16,8 @@ type Action struct {
 }
 
 type Updater struct {
-	ipv4Zones        []string
-	ipv6Zones        []string
-	ipv6LocalAddress *net.IP
+	ipv4Zones []string
+	ipv6Zones []string
 
 	actions []*Action
 
@@ -41,10 +40,6 @@ func (u *Updater) SetIPv4Zones(zones string) {
 
 func (u *Updater) SetIPv6Zones(zones string) {
 	u.ipv6Zones = strings.Split(zones, ",")
-}
-
-func (u *Updater) SetIPv6LocalAddress(localAddress *net.IP) {
-	u.ipv6LocalAddress = localAddress
 }
 
 func (u *Updater) Init(email string, key string) error {
@@ -141,12 +136,6 @@ func (u *Updater) spawnWorker() {
 				var recordType string
 
 				if ip.To4() == nil {
-					if u.ipv6LocalAddress != nil {
-						for i := 8; i < 16; i++ {
-							(*ip)[i] = (*u.ipv6LocalAddress)[i]
-						}
-					}
-
 					recordType = "AAAA"
 				} else {
 					recordType = "A"

@@ -23,8 +23,19 @@ func main() {
 	updater := newUpdater()
 	updater.StartWorker()
 
-	startPollServer(updater.In)
-	startPushServer(updater.In)
+	ipv6LocalAddress := os.Getenv("DEVICE_LOCAL_ADDRESS_IPV6")
+
+	var localIp net.IP
+	if ipv6LocalAddress != "" {
+		localIp = net.ParseIP(ipv6LocalAddress)
+		if localIp == nil {
+			log.Error("Failed to parse IP from DEVICE_LOCAL_ADDRESS_IPV6, exiting")
+			return
+		}
+	}
+
+	startPollServer(updater.In, &localIp)
+	startPushServer(updater.In, &localIp)
 
 	shutdown := make(chan os.Signal)
 
@@ -90,7 +101,6 @@ func newUpdater() *cloudflare.Updater {
 
 	ipv4Zone := os.Getenv("CLOUDFLARE_ZONES_IPV4")
 	ipv6Zone := os.Getenv("CLOUDFLARE_ZONES_IPV6")
-	ipv6LocalAddress := os.Getenv("CLOUDFLARE_LOCAL_ADDRESS_IPV6")
 
 	if ipv4Zone == "" && ipv6Zone == "" {
 		log.Warn("Env CLOUDFLARE_ZONES_IPV4 and CLOUDFLARE_ZONES_IPV6 not found, disabling CloudFlare updates")
@@ -105,15 +115,6 @@ func newUpdater() *cloudflare.Updater {
 		u.SetIPv6Zones(ipv6Zone)
 	}
 
-	if ipv6LocalAddress != "" {
-		localIp := net.ParseIP(ipv6LocalAddress)
-		if localIp == nil {
-			log.Error("Failed to parse IP from CLOUDFLARE_LOCAL_ADDRESS_IPV6, disabling CloudFlare updates")
-			return u
-		}
-		u.SetIPv6LocalAddress(&localIp)
-	}
-
 	err := u.Init(email, key)
 
 	if err != nil {
@@ -124,7 +125,7 @@ func newUpdater() *cloudflare.Updater {
 	return u
 }
 
-func startPushServer(out chan<- *net.IP) {
+func startPushServer(out chan<- *net.IP, localIp *net.IP) {
 	bind := os.Getenv("DYNDNS_SERVER_BIND")
 
 	if bind == "" {
@@ -132,7 +133,7 @@ func startPushServer(out chan<- *net.IP) {
 		return
 	}
 
-	server := dyndns.NewServer(out)
+	server := dyndns.NewServer(out, localIp)
 	server.Username = os.Getenv("DYNDNS_SERVER_USERNAME")
 	server.Password = os.Getenv("DYNDNS_SERVER_PASSWORD")
 
@@ -147,7 +148,7 @@ func startPushServer(out chan<- *net.IP) {
 	}()
 }
 
-func startPollServer(out chan<- *net.IP) {
+func startPollServer(out chan<- *net.IP, localIp *net.IP) {
 	fritzbox := newFritzBox()
 
 	// Import endpoint polling interval duration
@@ -172,6 +173,7 @@ func startPollServer(out chan<- *net.IP) {
 	go func() {
 		lastV4 := net.IP{}
 		lastV6 := net.IP{}
+		lastV6Prefix := &net.IPNet{}
 
 		poll := func() {
 			log.Debug("Polling WAN IPs from router")
@@ -189,15 +191,37 @@ func startPollServer(out chan<- *net.IP) {
 
 			}
 
-			ipv6, err := fritzbox.GetwanIpv6()
+			if localIp == nil {
+				ipv6, err := fritzbox.GetwanIpv6()
 
-			if err != nil {
-				log.WithError(err).Warn("Failed to poll WAN IPv6 from router")
+				if err != nil {
+					log.WithError(err).Warn("Failed to poll WAN IPv6 from router")
+				} else {
+					if !lastV6.Equal(ipv6) {
+						log.WithField("ipv6", ipv6).Info("New WAN IPv6 found")
+						out <- &ipv6
+						lastV6 = ipv6
+					}
+				}
 			} else {
-				if !lastV6.Equal(ipv6) {
-					log.WithField("ipv6", ipv6).Info("New WAN IPv6 found")
-					out <- &ipv6
-					lastV6 = ipv6
+				prefix, err := fritzbox.GetIpv6Prefix()
+
+				if err != nil {
+					log.WithError(err).Warn("Failed to poll IPv6 Prefix from router")
+				} else {
+					if lastV6Prefix != prefix {
+						log.WithField("prefix", prefix).Info("New IPv6 Prefix found")
+
+						constructedIp := make(net.IP, net.IPv6len)
+						copy(constructedIp, prefix.IP)
+
+						for i := 0; i < net.IPv6len; i++ {
+							constructedIp[i] = constructedIp[i] + (*localIp)[i]
+						}
+
+						out <- &constructedIp
+						lastV6Prefix = prefix
+					}
 				}
 			}
 		}

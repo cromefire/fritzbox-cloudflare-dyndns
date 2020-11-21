@@ -86,18 +86,17 @@ func newFritzBox() *avm.FritzBox {
 func newUpdater() *cloudflare.Updater {
 	u := cloudflare.NewUpdater()
 
+	token := os.Getenv("CLOUDFLARE_API_TOKEN")
 	email := os.Getenv("CLOUDFLARE_API_EMAIL")
-
-	if email == "" {
-		log.Info("Env CLOUDFLARE_API_EMAIL not found, disabling CloudFlare updates")
-		return u
-	}
-
 	key := os.Getenv("CLOUDFLARE_API_KEY")
 
-	if key == "" {
-		log.Info("Env CLOUDFLARE_API_KEY not found, disabling CloudFlare updates")
-		return u
+	if token == "" {
+		if email == "" || key == "" {
+			log.Info("Env CLOUDFLARE_API_TOKEN not found, disabling CloudFlare updates")
+			return u
+		} else {
+			log.Warn("Using deprecated credentials via the API key")
+		}
 	}
 
 	ipv4Zone := os.Getenv("CLOUDFLARE_ZONES_IPV4")
@@ -116,7 +115,13 @@ func newUpdater() *cloudflare.Updater {
 		u.SetIPv6Zones(ipv6Zone)
 	}
 
-	err := u.Init(email, key)
+	var err error
+
+	if token != "" {
+		err = u.InitWithToken(token)
+	} else {
+		err = u.InitWithKey(email, key)
+	}
 
 	if err != nil {
 		log.WithError(err).Error("Failed to init Cloudflare updater, disabling CloudFlare updates")

@@ -1,4 +1,4 @@
-# AVM FRITZ!Box CloudFlare DNS-service
+# AVM FRITZ!Box Cloudflare DNS-service
 
 This project has some simple goals:
 
@@ -77,17 +77,17 @@ You can try the endpoint URL in the browser to make sure you have the correct po
 
 ## Cloudflare setup
 
-Login to the cloudflare dashboard, go to your `Profile` and switch over to `API Tokens` and use the `Global API Key`.
-I tried to work with the BETA API Tokens but never could the permissions to be right for mapping and updating DNS entries in zones.
+To get your API Token do the following: Login to the cloudflare dashboard, go to `My Profile > API Tokens > Create Token > Edit zone DNS`, give to token some good name (e.g. "DDNS"), add all zones that the DDNS should be used for, click `Continue to summary` and `Create token`. Be sure to copy the token and add it to the config, you won't be able to see it again.
 
 In your `.env` file or your system environment variables you can be configured:
 
 | Variable name | Description |
 | --- | --- |
-| CLOUDFLARE_API_EMAIL | required, your CloudFlare account email |
-| CLOUDFLARE_API_KEY | required, your CloudFlare Global API key |
+| CLOUDFLARE_API_TOKEN | required, your Cloudflare API Token |
 | CLOUDFLARE_ZONES_IPV4 | comma-separated list of domains to update with new IPv4 addresses |
 | CLOUDFLARE_ZONES_IPV6 | comma-separated list of domains to update with new IPv6 addresses |
+| CLOUDFLARE_API_EMAIL | deprecated, your Cloudflare account email |
+| CLOUDFLARE_API_KEY | deprecated, your Cloudflare Global API key |
 
 This service allows to update multiple records, an advanced example would be:
 

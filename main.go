@@ -32,6 +32,7 @@ func main() {
 			log.Error("Failed to parse IP from DEVICE_LOCAL_ADDRESS_IPV6, exiting")
 			return
 		}
+		log.Info("Using the IPv6 Prefix to construct the IPv6 Address")
 	}
 
 	startPollServer(updater.In, &localIp)
@@ -191,7 +192,7 @@ func startPollServer(out chan<- *net.IP, localIp *net.IP) {
 
 			}
 
-			if localIp == nil {
+			if *localIp == nil {
 				ipv6, err := fritzbox.GetwanIpv6()
 
 				if err != nil {

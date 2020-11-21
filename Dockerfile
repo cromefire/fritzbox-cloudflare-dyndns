@@ -1,4 +1,4 @@
-FROM golang:alpine as server_build
+FROM golang:1.15-alpine as server_build
 
 # Add build deps
 RUN apk add --update gcc g++ git
@@ -17,7 +17,7 @@ RUN set -ex \
     && CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -o server
 
 # Build deployable server
-FROM alpine:latest
+FROM alpine:s
 
 ENV FRITZBOX_ENDPOINT_URL ${FRITZBOX_ENDPOINT_URL:-http://fritz.box:49000}
 ENV FRITZBOX_ENDPOINT_TIMEOUT ${FRITZBOX_ENDPOINT_TIMEOUT:-30s}

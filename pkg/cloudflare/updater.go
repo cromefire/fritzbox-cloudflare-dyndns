@@ -21,16 +21,16 @@ type Updater struct {
 
 	actions []*Action
 
-	init bool
-	api  *cf.API
+	isInit bool
+	api    *cf.API
 
 	In chan *net.IP
 }
 
 func NewUpdater() *Updater {
 	return &Updater{
-		init: false,
-		In:   make(chan *net.IP, 10),
+		isInit: false,
+		In:     make(chan *net.IP, 10),
 	}
 }
 
@@ -42,14 +42,27 @@ func (u *Updater) SetIPv6Zones(zones string) {
 	u.ipv6Zones = strings.Split(zones, ",")
 }
 
-func (u *Updater) Init(email string, key string) error {
-	// api, err := cf.NewWithAPIToken(token)
+func (u *Updater) InitWithToken(token string) error {
+	api, err := cf.NewWithAPIToken(token)
+
+	if err != nil {
+		return err
+	}
+
+	return u.init(api)
+}
+
+func (u *Updater) InitWithKey(email string, key string) error {
 	api, err := cf.New(key, email)
 
 	if err != nil {
 		return err
 	}
 
+	return u.init(api)
+}
+
+func (u *Updater) init(api *cf.API) error {
 	// Create unique list of zones and fetch their CloudFlare zone IDs
 	zoneIdMap := make(map[string]string)
 
@@ -99,13 +112,13 @@ func (u *Updater) Init(email string, key string) error {
 	}
 
 	u.api = api
-	u.init = true
+	u.isInit = true
 
 	return nil
 }
 
 func (u *Updater) StartWorker() {
-	if !u.init {
+	if !u.isInit {
 		return
 	}
 

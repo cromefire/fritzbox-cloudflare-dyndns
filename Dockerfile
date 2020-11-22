@@ -5,16 +5,12 @@ RUN apk add --update gcc g++ git
 
 COPY go.mod go.sum /appbuild/
 
-RUN set -ex \
-    && cd /appbuild \
-    && go mod download
-
 COPY ./ /appbuild
 
 RUN set -ex \
     && go version \
     && cd /appbuild \
-    && CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -o server
+    && CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -mod=vendor -o server
 
 # Build deployable server
 FROM alpine:latest

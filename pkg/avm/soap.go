@@ -67,3 +67,48 @@ func parseGetExternalIPv6Address(xml []byte) (net.IP, error) {
 
 	return ip, nil
 }
+
+func parseGetIPv6Prefix(xml []byte) (*net.IPNet, error) {
+	pathLifetime := xmlpath.MustCompile("//NewValidLifetime")
+	pathPrefix := xmlpath.MustCompile("//NewIPv6Prefix")
+	pathPrefixLength := xmlpath.MustCompile("//NewPrefixLength")
+
+	root, err := xmlpath.Parse(bytes.NewBuffer(xml))
+
+	if err != nil {
+		return nil, err
+	}
+
+	// First check the lifetime as 0 indicates a disabled IPv6 stack
+	v, ok := pathLifetime.String(root)
+
+	if !ok {
+		return nil, errors.New("xpath not found")
+	}
+
+	if v == "0" {
+		return nil, nil
+	}
+
+	// Now lets parse the actual address
+	v, ok = pathPrefix.String(root)
+
+	if !ok {
+		return nil, errors.New("xpath not found")
+	}
+
+	// Now lets parse the length
+	l, ok := pathPrefixLength.String(root)
+
+	if !ok {
+		return nil, errors.New("xpath not found")
+	}
+
+	_, ipNet, err := net.ParseCIDR(v + "/" + l)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return ipNet, nil
+}

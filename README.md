@@ -1,4 +1,4 @@
-# AVM FRITZ!Box CloudFlare DNS-service
+# AVM FRITZ!Box Cloudflare DNS-service
 
 This project has some simple goals:
 
@@ -18,7 +18,7 @@ Before you try this service evaluate a cheap workaround, as it does not require 
 Have dynamic IP updates by using a CNAME record to your myfritz address, found in `Admin > Internet > MyFRITZ-Account`.
 It should look like `[hash].myfritz.net`.
 
-This basic example of a BIND DNS entry would make `intranet.example.com` auto update the current IP: 
+This basic example of a BIND DNS entry would make `intranet.example.com` auto update the current IP:
 
 ```
 $TTL 60
@@ -50,12 +50,12 @@ Now configure the FRITZ!Box router to push IP changes towards this service. Log 
 
 | Property | Description / Value |
 | --- | --- |
-| Update-URL | http://[server-ip]/ip?v4=\<ipaddr\>&v6=\<ip6addr\> |
-| Domain | Leave blank, no meaning |
-| Username | Leave blank if `DYNDNS_SERVER_USERNAME` env is unset |
-| Password | Leave blank if `DYNDNS_SERVER_PASSWORD` env is unset |
+| Update-URL | http://[server-ip]/ip?v4=\<ipaddr\>&v6=\<ip6addr\>&prefix=\<ip6lanprefix\> |
+| Domain | Enter at least one domain name so the router can probe if the update was successfully |
+| Username | Enter '_' if  `DYNDNS_SERVER_USERNAME` env is unset |
+| Password | Enter '_' if `DYNDNS_SERVER_PASSWORD` env is unset |
 
-If you specified credentials you need to append them as additional GET parameters into the Update-URL like `&username=user&password=pass"`.
+If you specified credentials you need to append them as additional GET parameters into the Update-URL like `&username=<user>&password=<pass>`.
 
 ### FRITZ!Box polling
 
@@ -73,21 +73,21 @@ In your `.env` file or your system environment variables you can be configured:
 | FRITZBOX_ENDPOINT_TIMEOUT | optional, a duration we give the router to respond, i.e. `10s`. |
 | FRITZBOX_ENDPOINT_INTERVAL | optional, a duration how often we want to poll the WAN IPs from the router, i.e. `120s` |
 
-You can try the endpoint URL in the browser to make sure you have the correct port, you should receive an `404 ERR_NOT_FOUND`. 
+You can try the endpoint URL in the browser to make sure you have the correct port, you should receive an `404 ERR_NOT_FOUND`.
 
 ## Cloudflare setup
 
-Login to the cloudflare dashboard, go to your `Profile` and switch over to `API Tokens` and use the `Global API Key`.
-I tried to work with the BETA API Tokens but never could the permissions to be right for mapping and updating DNS entries in zones.
+To get your API Token do the following: Login to the cloudflare dashboard, go to `My Profile > API Tokens > Create Token > Edit zone DNS`, give to token some good name (e.g. "DDNS"), add all zones that the DDNS should be used for, click `Continue to summary` and `Create token`. Be sure to copy the token and add it to the config, you won't be able to see it again.
 
 In your `.env` file or your system environment variables you can be configured:
 
 | Variable name | Description |
 | --- | --- |
-| CLOUDFLARE_API_EMAIL | required, your CloudFlare account email |
-| CLOUDFLARE_API_KEY | required, your CloudFlare Global API key |
+| CLOUDFLARE_API_TOKEN | required, your Cloudflare API Token |
 | CLOUDFLARE_ZONES_IPV4 | comma-separated list of domains to update with new IPv4 addresses |
 | CLOUDFLARE_ZONES_IPV6 | comma-separated list of domains to update with new IPv6 addresses |
+| CLOUDFLARE_API_EMAIL | deprecated, your Cloudflare account email |
+| CLOUDFLARE_API_KEY | deprecated, your Cloudflare Global API key |
 
 This service allows to update multiple records, an advanced example would be:
 
@@ -98,6 +98,20 @@ CLOUDFLARE_ZONES_IPV6=ipv6.example.com,ip.example.com,server-01.dev.local
 
 Considering the example call `http://192.168.0.2:8080/ip?v4=127.0.0.1&v6=::1` every IPv4 listed zone would be updated to
 `127.0.0.1` and every IPv6 listed one to `::1`.
+
+## Register IPv6 for another device (port-forwarding)
+
+IPv6 port-forwarding works differently and so if you want to use it you have to add the following configuration.
+
+Warning: `FRITZBOX_ENDPOINT_URL` has to be set for this to work.
+
+To access a device via IPv6 you need to add it's global IPv6 address to cloudflare, for this to be calculated you need to find out the local part of it's IP.
+You can find out the local part of a device's IP, by going to the device's settings and looking at the `IPv6 Interface-ID`.
+It should look something like this: `::1234:5678:90ab:cdef`
+
+| Variable name | Description |
+| --- | --- |
+| DEVICE_LOCAL_ADDRESS_IPV6 | required, enter the local part of the device IP |
 
 ## Docker compose setup
 

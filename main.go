@@ -23,8 +23,20 @@ func main() {
 	updater := newUpdater()
 	updater.StartWorker()
 
-	startPollServer(updater.In)
-	startPushServer(updater.In)
+	ipv6LocalAddress := os.Getenv("DEVICE_LOCAL_ADDRESS_IPV6")
+
+	var localIp net.IP
+	if ipv6LocalAddress != "" {
+		localIp = net.ParseIP(ipv6LocalAddress)
+		if localIp == nil {
+			log.Error("Failed to parse IP from DEVICE_LOCAL_ADDRESS_IPV6, exiting")
+			return
+		}
+		log.Info("Using the IPv6 Prefix to construct the IPv6 Address")
+	}
+
+	startPollServer(updater.In, &localIp)
+	startPushServer(updater.In, &localIp)
 
 	shutdown := make(chan os.Signal)
 
@@ -74,18 +86,17 @@ func newFritzBox() *avm.FritzBox {
 func newUpdater() *cloudflare.Updater {
 	u := cloudflare.NewUpdater()
 
+	token := os.Getenv("CLOUDFLARE_API_TOKEN")
 	email := os.Getenv("CLOUDFLARE_API_EMAIL")
-
-	if email == "" {
-		log.Info("Env CLOUDFLARE_API_TOKEN not found, disabling CloudFlare updates")
-		return u
-	}
-
 	key := os.Getenv("CLOUDFLARE_API_KEY")
 
-	if key == "" {
-		log.Info("Env CLOUDFLARE_API_KEY not found, disabling CloudFlare updates")
-		return u
+	if token == "" {
+		if email == "" || key == "" {
+			log.Info("Env CLOUDFLARE_API_TOKEN not found, disabling CloudFlare updates")
+			return u
+		} else {
+			log.Warn("Using deprecated credentials via the API key")
+		}
 	}
 
 	ipv4Zone := os.Getenv("CLOUDFLARE_ZONES_IPV4")
@@ -104,7 +115,13 @@ func newUpdater() *cloudflare.Updater {
 		u.SetIPv6Zones(ipv6Zone)
 	}
 
-	err := u.Init(email, key)
+	var err error
+
+	if token != "" {
+		err = u.InitWithToken(token)
+	} else {
+		err = u.InitWithKey(email, key)
+	}
 
 	if err != nil {
 		log.WithError(err).Error("Failed to init Cloudflare updater, disabling CloudFlare updates")
@@ -114,7 +131,7 @@ func newUpdater() *cloudflare.Updater {
 	return u
 }
 
-func startPushServer(out chan<- *net.IP) {
+func startPushServer(out chan<- *net.IP, localIp *net.IP) {
 	bind := os.Getenv("DYNDNS_SERVER_BIND")
 
 	if bind == "" {
@@ -122,7 +139,7 @@ func startPushServer(out chan<- *net.IP) {
 		return
 	}
 
-	server := dyndns.NewServer(out)
+	server := dyndns.NewServer(out, localIp)
 	server.Username = os.Getenv("DYNDNS_SERVER_USERNAME")
 	server.Password = os.Getenv("DYNDNS_SERVER_PASSWORD")
 
@@ -137,7 +154,7 @@ func startPushServer(out chan<- *net.IP) {
 	}()
 }
 
-func startPollServer(out chan<- *net.IP) {
+func startPollServer(out chan<- *net.IP, localIp *net.IP) {
 	fritzbox := newFritzBox()
 
 	// Import endpoint polling interval duration
@@ -163,24 +180,23 @@ func startPollServer(out chan<- *net.IP) {
 		lastV4 := net.IP{}
 		lastV6 := net.IP{}
 
-		for {
-			select {
-			case <-ticker.C:
-				log.Debug("Polling WAN IPs from router")
+		poll := func() {
+			log.Debug("Polling WAN IPs from router")
 
-				ipv4, err := fritzbox.GetWanIpv4()
+			ipv4, err := fritzbox.GetWanIpv4()
 
-				if err != nil {
-					log.WithError(err).Warn("Failed to poll WAN IPv4 from router")
-				} else {
-					if !lastV4.Equal(ipv4) {
-						log.WithField("ipv4", ipv4).Info("New WAN IPv4 found")
-						out <- &ipv4
-						lastV4 = ipv4
-					}
-
+			if err != nil {
+				log.WithError(err).Warn("Failed to poll WAN IPv4 from router")
+			} else {
+				if !lastV4.Equal(ipv4) {
+					log.WithField("ipv4", ipv4).Info("New WAN IPv4 found")
+					out <- &ipv4
+					lastV4 = ipv4
 				}
 
+			}
+
+			if *localIp == nil {
 				ipv6, err := fritzbox.GetwanIpv6()
 
 				if err != nil {
@@ -192,6 +208,36 @@ func startPollServer(out chan<- *net.IP) {
 						lastV6 = ipv6
 					}
 				}
+			} else {
+				prefix, err := fritzbox.GetIpv6Prefix()
+
+				if err != nil {
+					log.WithError(err).Warn("Failed to poll IPv6 Prefix from router")
+				} else {
+					if !lastV6.Equal(prefix.IP) {
+
+						constructedIp := make(net.IP, net.IPv6len)
+						copy(constructedIp, prefix.IP)
+
+						for i := 0; i < net.IPv6len; i++ {
+							constructedIp[i] = constructedIp[i] + (*localIp)[i]
+						}
+
+						log.WithField("prefix", prefix).WithField("ipv6", constructedIp).Info("New IPv6 Prefix found")
+
+						out <- &constructedIp
+						lastV6 = prefix.IP
+					}
+				}
+			}
+		}
+
+		poll()
+
+		for {
+			select {
+			case <-ticker.C:
+				poll()
 			}
 		}
 	}()

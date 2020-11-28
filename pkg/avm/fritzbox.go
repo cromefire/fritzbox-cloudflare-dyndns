@@ -90,3 +90,38 @@ func (fb *FritzBox) GetwanIpv6() (net.IP, error) {
 
 	return ip, nil
 }
+
+func (fb *FritzBox) GetIpv6Prefix() (*net.IPNet, error) {
+	request, err := http.NewRequest("POST", fmt.Sprintf("%s/igdupnp/control/WANIPConn1", fb.Url), bytes.NewBufferString(soapGetWanIp))
+
+	if err != nil {
+		return nil, err
+	}
+
+	request.Header.Set("Content-Type", "text/xml; charset=utf-8;")
+	request.Header.Set("SoapAction", "urn:schemas-upnp-org:service:WANIPConnection:1#X_AVM_DE_GetIPv6Prefix")
+
+	client := &http.Client{
+		Timeout: fb.Timeout,
+	}
+
+	response, err := client.Do(request)
+
+	if err != nil {
+		return nil, err
+	}
+
+	body, err := ioutil.ReadAll(response.Body)
+
+	if err != nil {
+		return nil, err
+	}
+
+	ipNet, err := parseGetIPv6Prefix(body)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return ipNet, nil
+}

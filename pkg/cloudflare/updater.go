@@ -188,7 +188,13 @@ func (u *Updater) spawnWorker() {
 				for _, record := range records {
 					alog.WithField("record-id", record.ID).Info("Updating DNS record")
 
-					err := u.api.UpdateDNSRecord(action.CfZoneId, record.ID, cf.DNSRecord{Content: ip.String()})
+					// Ensure we submit all required fields even if they did not change,otherwise
+					// cloudflare-go might revert them to default values.
+					err := u.api.UpdateDNSRecord(action.CfZoneId, record.ID, cf.DNSRecord{
+						Content: ip.String(),
+						TTL: record.TTL,
+						Proxied: record.Proxied,
+					})
 
 					if err != nil {
 						alog.WithError(err).Error("Action failed, could not update DNS record")

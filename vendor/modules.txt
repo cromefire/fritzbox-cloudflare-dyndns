@@ -1,4 +1,4 @@
-# github.com/cloudflare/cloudflare-go v0.13.5
+# github.com/cloudflare/cloudflare-go v0.13.6
 github.com/cloudflare/cloudflare-go
 # github.com/joho/godotenv v1.3.0
 github.com/joho/godotenv
@@ -8,7 +8,7 @@ github.com/konsorten/go-windows-terminal-sequences
 github.com/pkg/errors
 # github.com/sirupsen/logrus v1.4.2
 github.com/sirupsen/logrus
-# golang.org/x/net v0.0.0-20201031054903-ff519b6c9102
+# golang.org/x/net v0.0.0-20201207224615-747e23833adb
 golang.org/x/net/html
 golang.org/x/net/html/atom
 golang.org/x/net/idna
@@ -16,12 +16,12 @@ golang.org/x/net/publicsuffix
 # golang.org/x/sys v0.0.0-20200930185726-fdedc70b468f
 golang.org/x/sys/internal/unsafeheader
 golang.org/x/sys/unix
-# golang.org/x/text v0.3.3
+# golang.org/x/text v0.3.4
 golang.org/x/text/secure/bidirule
 golang.org/x/text/transform
 golang.org/x/text/unicode/bidi
 golang.org/x/text/unicode/norm
-# golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e
+# golang.org/x/time v0.0.0-20201208040808-7e3f01d25324
 golang.org/x/time/rate
 # gopkg.in/xmlpath.v2 v2.0.0-20150820204837-860cbeca3ebc
 gopkg.in/xmlpath.v2

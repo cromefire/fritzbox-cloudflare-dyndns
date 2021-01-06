@@ -123,6 +123,7 @@ version: '3.7'
 services:
   updater:
     image: adrianrudnik/fritzbox-cloudflare-dyndns
+    network_mode: host
     # build:
     #   context: .
     environment:
@@ -133,10 +134,9 @@ services:
       - CLOUDFLARE_API_KEY=demo
       - CLOUDFLARE_ZONES_IPV4=test.example.com
       - CLOUDFLARE_ZONES_IPV6=test.example.com
-    ports:
-      - 8080:8080
 ```
 
+Now we could configure the FRITZ!Box to `http://[docker-host-ip]:49000/ip?v4=<ipaddr>&v6=<ip6addr>&prefix=<ip6lanprefix>` and it should trigger the update process.
 
 ## Docker build
 

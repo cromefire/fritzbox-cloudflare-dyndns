@@ -54,7 +54,7 @@ func (s *Server) Handler(w http.ResponseWriter, r *http.Request) {
 		s.out <- &ipv4
 	}
 
-	if s.localIp == nil {
+	if *s.localIp == nil {
 		// Parse IPv6
 		ipv6 := net.ParseIP(params.Get("v6"))
 		if ipv6 != nil && ipv6.To4() == nil {

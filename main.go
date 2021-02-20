@@ -188,9 +188,9 @@ func startPollServer(out chan<- *net.IP, localIp *net.IP) {
 			if err != nil {
 				log.WithError(err).Warn("Failed to poll WAN IPv4 from router")
 			} else {
+				out <- &ipv4
 				if !lastV4.Equal(ipv4) {
 					log.WithField("ipv4", ipv4).Info("New WAN IPv4 found")
-					out <- &ipv4
 					lastV4 = ipv4
 				}
 
@@ -214,18 +214,18 @@ func startPollServer(out chan<- *net.IP, localIp *net.IP) {
 				if err != nil {
 					log.WithError(err).Warn("Failed to poll IPv6 Prefix from router")
 				} else {
+					constructedIp := make(net.IP, net.IPv6len)
+					copy(constructedIp, prefix.IP)
+
+					for i := 0; i < net.IPv6len; i++ {
+						constructedIp[i] = constructedIp[i] + (*localIp)[i]
+					}
+
+					log.WithField("prefix", prefix).WithField("ipv6", constructedIp).Info("New IPv6 Prefix found")
+
+					out <- &constructedIp
+
 					if !lastV6.Equal(prefix.IP) {
-
-						constructedIp := make(net.IP, net.IPv6len)
-						copy(constructedIp, prefix.IP)
-
-						for i := 0; i < net.IPv6len; i++ {
-							constructedIp[i] = constructedIp[i] + (*localIp)[i]
-						}
-
-						log.WithField("prefix", prefix).WithField("ipv6", constructedIp).Info("New IPv6 Prefix found")
-
-						out <- &constructedIp
 						lastV6 = prefix.IP
 					}
 				}

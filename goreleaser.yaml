@@ -8,7 +8,7 @@ before:
     - go mod vendor
 builds:
   - env:
-      - CGO_ENABLED=0
+      - CGO_ENABLED=1
     goos:
       - "linux"
     goarch:
@@ -61,7 +61,6 @@ dockers:
     goos: linux
     goarch: arm
     goarm: "7"
-    use: "buildx"
     build_flag_templates:
       - "--pull"
       - "--platform=linux/arm/v7"

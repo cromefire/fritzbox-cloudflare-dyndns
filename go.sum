@@ -1,4 +1,6 @@
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
+github.com/adrianrudnik/fritzbox-cloudflare-dyndns v0.0.0-20210210195419-a0607bb6a513 h1:zAjT2KumQc+Ba+1cQJb3PhlOQsXs6dB6FzWS1HjsIJk=
+github.com/adrianrudnik/fritzbox-cloudflare-dyndns v0.0.0-20210210195419-a0607bb6a513/go.mod h1:+W7XKPyCoEPh4u0YWjy8dOcICbvwyG8pLV2VUlunhhw=
 github.com/cloudflare/cloudflare-go v0.13.6 h1:G6aw092fOkvkHODCxf8EHLPqHN2BVxHU4RoTFjS51xo=
 github.com/cloudflare/cloudflare-go v0.13.6/go.mod h1:gNGW6MkPPVLhjgaXq4vaS7WnTaQpCfl6DE1W9JuWyt8=
 github.com/cpuguy83/go-md2man/v2 v2.0.0-20190314233015-f79a8a8ca69d/go.mod h1:maD7wRr/U5Z6m/iR4s+kqSMx2CaBsrgA7czyZG/E6dU=

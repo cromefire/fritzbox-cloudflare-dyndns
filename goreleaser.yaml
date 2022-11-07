@@ -83,6 +83,7 @@ dockers:
       - "--label=org.opencontainers.image.revision={{.FullCommit}}"
       - "--label=org.opencontainers.image.version={{.Version}}"
       - "--platform=linux/arm/v7"
+      - "--network=host"
   - image_templates:
       - "ghcr.io/stnokott/{{ .ProjectName }}:latest"
       - "ghcr.io/stnokott/{{ .ProjectName }}:{{ .Version }}"

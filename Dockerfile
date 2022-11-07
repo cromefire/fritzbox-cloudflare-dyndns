@@ -14,6 +14,8 @@ ENV FRITZBOX_ENDPOINT_URL ${FRITZBOX_ENDPOINT_URL:-http://fritz.box:49000} \
 
 WORKDIR /app
 
+RUN /bin/ash -c 'apk update'
+
 RUN apk add --no-cache ca-certificates tzdata
 
 RUN update-ca-certificates

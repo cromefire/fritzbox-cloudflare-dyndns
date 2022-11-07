@@ -1,3 +1,6 @@
+> Forked from [adrianrudnik/fritzbox-cloudflare-dyndns](https://github.com/adrianrudnik/fritzbox-cloudflare-dyndns).
+Changed nothing in functionality, just added cross-compilation, most importantly to ARMv7.
+
 # AVM FRITZ!Box Cloudflare DNS-service
 
 This project has some simple goals:
@@ -39,21 +42,21 @@ You can use this strategy if you have:
 
 In your `.env` file or your system environment variables you can be configured:
 
-| Variable name | Description |
-| --- | --- |
-| DYNDNS_SERVER_BIND | required, network interface to bind to, i.e. `:8080` |
-| DYNDNS_SERVER_USERNAME | optional, username for the DynDNS service |
-| DYNDNS_SERVER_PASSWORD | optional, password for the DynDNS service |
+| Variable name          | Description                                          |
+| ---------------------- | ---------------------------------------------------- |
+| DYNDNS_SERVER_BIND     | required, network interface to bind to, i.e. `:8080` |
+| DYNDNS_SERVER_USERNAME | optional, username for the DynDNS service            |
+| DYNDNS_SERVER_PASSWORD | optional, password for the DynDNS service            |
 
 Now configure the FRITZ!Box router to push IP changes towards this service. Log into the admin panel and go to
 `Internet > Shares > DynDNS tab` and setup a  `Custom` provider:
 
-| Property | Description / Value |
-| --- | --- |
-| Update-URL | http://[server-ip]/ip?v4=\<ipaddr\>&v6=\<ip6addr\>&prefix=\<ip6lanprefix\> |
-| Domain | Enter at least one domain name so the router can probe if the update was successfully |
-| Username | Enter '_' if  `DYNDNS_SERVER_USERNAME` env is unset |
-| Password | Enter '_' if `DYNDNS_SERVER_PASSWORD` env is unset |
+| Property   | Description / Value                                                                   |
+| ---------- | ------------------------------------------------------------------------------------- |
+| Update-URL | http://[server-ip]/ip?v4=\<ipaddr\>&v6=\<ip6addr\>&prefix=\<ip6lanprefix\>            |
+| Domain     | Enter at least one domain name so the router can probe if the update was successfully |
+| Username   | Enter '_' if  `DYNDNS_SERVER_USERNAME` env is unset                                   |
+| Password   | Enter '_' if `DYNDNS_SERVER_PASSWORD` env is unset                                    |
 
 If you specified credentials you need to append them as additional GET parameters into the Update-URL like `&username=<user>&password=<pass>`.
 
@@ -67,11 +70,11 @@ You can use this strategy if you have:
 
 In your `.env` file or your system environment variables you can be configured:
 
-| Variable name | Description |
-| --- | --- |
-| FRITZBOX_ENDPOINT_URL | optional, how can we reach the router, i.e. `http://fritz.box:49000`, the port should be 49000 anyway. |
-| FRITZBOX_ENDPOINT_TIMEOUT | optional, a duration we give the router to respond, i.e. `10s`. |
-| FRITZBOX_ENDPOINT_INTERVAL | optional, a duration how often we want to poll the WAN IPs from the router, i.e. `120s` |
+| Variable name              | Description                                                                                            |
+| -------------------------- | ------------------------------------------------------------------------------------------------------ |
+| FRITZBOX_ENDPOINT_URL      | optional, how can we reach the router, i.e. `http://fritz.box:49000`, the port should be 49000 anyway. |
+| FRITZBOX_ENDPOINT_TIMEOUT  | optional, a duration we give the router to respond, i.e. `10s`.                                        |
+| FRITZBOX_ENDPOINT_INTERVAL | optional, a duration how often we want to poll the WAN IPs from the router, i.e. `120s`                |
 
 You can try the endpoint URL in the browser to make sure you have the correct port, you should receive an `404 ERR_NOT_FOUND`.
 
@@ -81,13 +84,13 @@ To get your API Token do the following: Login to the cloudflare dashboard, go to
 
 In your `.env` file or your system environment variables you can be configured:
 
-| Variable name | Description |
-| --- | --- |
-| CLOUDFLARE_API_TOKEN | required, your Cloudflare API Token |
+| Variable name         | Description                                                       |
+| --------------------- | ----------------------------------------------------------------- |
+| CLOUDFLARE_API_TOKEN  | required, your Cloudflare API Token                               |
 | CLOUDFLARE_ZONES_IPV4 | comma-separated list of domains to update with new IPv4 addresses |
 | CLOUDFLARE_ZONES_IPV6 | comma-separated list of domains to update with new IPv6 addresses |
-| CLOUDFLARE_API_EMAIL | deprecated, your Cloudflare account email |
-| CLOUDFLARE_API_KEY | deprecated, your Cloudflare Global API key |
+| CLOUDFLARE_API_EMAIL  | deprecated, your Cloudflare account email                         |
+| CLOUDFLARE_API_KEY    | deprecated, your Cloudflare Global API key                        |
 
 This service allows to update multiple records, an advanced example would be:
 
@@ -109,8 +112,8 @@ To access a device via IPv6 you need to add it's global IPv6 address to cloudfla
 You can find out the local part of a device's IP, by going to the device's settings and looking at the `IPv6 Interface-ID`.
 It should look something like this: `::1234:5678:90ab:cdef`
 
-| Variable name | Description |
-| --- | --- |
+| Variable name             | Description                                     |
+| ------------------------- | ----------------------------------------------- |
 | DEVICE_LOCAL_ADDRESS_IPV6 | required, enter the local part of the device IP |
 
 ## Docker compose setup

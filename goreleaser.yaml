@@ -63,6 +63,7 @@ dockers:
     goarm: "7"
     use: "buildx"
     build_flag_templates:
+      - "--pull"
       - "--platform=linux/arm/v7"
       - "--label=org.opencontainers.image.created={{.Date}}"
       - "--label=org.opencontainers.image.title={{.ProjectName}}"

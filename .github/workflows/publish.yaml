@@ -16,6 +16,8 @@ jobs:
   goreleaser:
     runs-on: ubuntu-latest
     steps:
+      - name: Install QEMU cross-compilation dependencies
+        run: sudo apt-get update && sudo apt-get install -y qemu-user-static
       - uses: actions/checkout@v3.1.0
         with:
           fetch-depth: 0

@@ -58,6 +58,8 @@ dockers:
   - image_templates:
       - "ghcr.io/stnokott/{{ .ProjectName }}:latest"
       - "ghcr.io/stnokott/{{ .ProjectName }}:{{ .Version }}"
+      - "docker.io/stnokott/{{ .ProjectName }}:latest"
+      - "docker.io/stnokott/{{ .ProjectName }}:{{ .Version }}"
     goos: linux
     goarch: amd64
     goamd64: v1
@@ -72,6 +74,8 @@ dockers:
   - image_templates:
       - "ghcr.io/stnokott/{{ .ProjectName }}:latest"
       - "ghcr.io/stnokott/{{ .ProjectName }}:{{ .Version }}"
+      - "docker.io/stnokott/{{ .ProjectName }}:latest"
+      - "docker.io/stnokott/{{ .ProjectName }}:{{ .Version }}"
     goos: linux
     goarch: arm64
     use: "buildx"
@@ -85,6 +89,8 @@ dockers:
   - image_templates:
       - "ghcr.io/stnokott/{{ .ProjectName }}:latest"
       - "ghcr.io/stnokott/{{ .ProjectName }}:{{ .Version }}"
+      - "docker.io/stnokott/{{ .ProjectName }}:latest"
+      - "docker.io/stnokott/{{ .ProjectName }}:{{ .Version }}"
     goos: linux
     goarch: arm
     goarm: "7"

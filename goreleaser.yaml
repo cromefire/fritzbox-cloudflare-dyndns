@@ -17,6 +17,8 @@ builds:
       - arm64
     goarm:
       - "7"
+    goamd64:
+      - "v2"
     flags:
       - -mod=vendor
     binary: server
@@ -58,6 +60,7 @@ dockers:
       - "ghcr.io/stnokott/{{ .ProjectName }}:{{ .Version }}"
     goos: linux
     goarch: amd64
+    goamd64: v2
     dockerfile: "Dockerfile"
     build_flag_templates:
       - "--pull"

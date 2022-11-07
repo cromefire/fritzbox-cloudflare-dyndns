@@ -12,9 +12,9 @@ builds:
     goos:
       - "linux"
     goarch:
-      - amd64
+      # - amd64
       - arm
-      - arm64
+      # - arm64
     goarm:
       - "7"
     goamd64:
@@ -59,33 +59,10 @@ dockers:
       - "ghcr.io/stnokott/{{ .ProjectName }}:latest"
       - "ghcr.io/stnokott/{{ .ProjectName }}:{{ .Version }}"
     goos: linux
-    goarch: amd64
-    goamd64: "v1"
-    build_flag_templates:
-      - "--platform=linux/amd64"
-      - "--label=org.opencontainers.image.created={{.Date}}"
-      - "--label=org.opencontainers.image.title={{.ProjectName}}"
-      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
-      - "--label=org.opencontainers.image.version={{.Version}}"
-  - image_templates:
-      - "ghcr.io/stnokott/{{ .ProjectName }}:latest"
-      - "ghcr.io/stnokott/{{ .ProjectName }}:{{ .Version }}"
-    goos: linux
     goarch: arm
     goarm: "7"
     build_flag_templates:
       - "--platform=linux/arm/v7"
-      - "--label=org.opencontainers.image.created={{.Date}}"
-      - "--label=org.opencontainers.image.title={{.ProjectName}}"
-      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
-      - "--label=org.opencontainers.image.version={{.Version}}"
-  - image_templates:
-      - "ghcr.io/stnokott/{{ .ProjectName }}:latest"
-      - "ghcr.io/stnokott/{{ .ProjectName }}:{{ .Version }}"
-    goos: linux
-    goarch: arm64
-    build_flag_templates:
-      - "--platform=linux/arm64/v1"
       - "--label=org.opencontainers.image.created={{.Date}}"
       - "--label=org.opencontainers.image.title={{.ProjectName}}"
       - "--label=org.opencontainers.image.revision={{.FullCommit}}"

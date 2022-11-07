@@ -14,10 +14,11 @@ ENV FRITZBOX_ENDPOINT_URL ${FRITZBOX_ENDPOINT_URL:-http://fritz.box:49000} \
 
 WORKDIR /app
 
-RUN set -ex \
-    && apk add --update --no-cache ca-certificates tzdata \
-    && update-ca-certificates \
-    && rm -rf /var/cache/apk/*
+RUN apk add --update --no-cache ca-certificates tzdata
+
+RUN update-ca-certificates
+
+RUN rm -rf /var/cache/apk/*
 
 COPY server /app/server
 

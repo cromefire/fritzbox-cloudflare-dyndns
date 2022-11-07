@@ -9,10 +9,16 @@ before:
 builds:
   - env:
       - CGO_ENABLED=0
-    targets:
-      - linux_amd64
-      - linux_arm_7
-      - linux_arm64
+    goos:
+      - "linux"
+    goarch:
+      - amd64
+      - arm
+      - arm64
+    goarm:
+      - "7"
+    goamd64:
+      - "v1"
     flags:
       - -mod=vendor
     binary: server
@@ -54,7 +60,7 @@ dockers:
       - "ghcr.io/stnokott/{{ .ProjectName }}:{{ .Version }}"
     goos: linux
     goarch: amd64
-    dockerfile: "Dockerfile"
+    goamd64: "v1"
     build_flag_templates:
       - "--platform=linux/amd64"
       - "--label=org.opencontainers.image.created={{.Date}}"
@@ -67,7 +73,6 @@ dockers:
     goos: linux
     goarch: arm
     goarm: "7"
-    dockerfile: "Dockerfile"
     build_flag_templates:
       - "--platform=linux/arm/v7"
       - "--label=org.opencontainers.image.created={{.Date}}"
@@ -79,9 +84,8 @@ dockers:
       - "ghcr.io/stnokott/{{ .ProjectName }}:{{ .Version }}"
     goos: linux
     goarch: arm64
-    dockerfile: "Dockerfile"
     build_flag_templates:
-      - "--platform=linux/arm64/v8"
+      - "--platform=linux/arm64/v1"
       - "--label=org.opencontainers.image.created={{.Date}}"
       - "--label=org.opencontainers.image.title={{.ProjectName}}"
       - "--label=org.opencontainers.image.revision={{.FullCommit}}"

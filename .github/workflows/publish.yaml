@@ -9,9 +9,6 @@ permissions:
   contents: write
   packages: write
 
-env:
-  TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
-
 jobs:
   goreleaser:
     runs-on: ubuntu-latest

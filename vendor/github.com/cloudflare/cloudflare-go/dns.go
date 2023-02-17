@@ -1,31 +1,35 @@
 package cloudflare
 
 import (
+	"context"
 	"encoding/json"
-	"net/url"
-	"strconv"
+	"errors"
+	"fmt"
+	"net/http"
 	"time"
 
-	"github.com/pkg/errors"
+	"golang.org/x/net/idna"
 )
 
 // DNSRecord represents a DNS record in a zone.
 type DNSRecord struct {
-	ID         string      `json:"id,omitempty"`
+	CreatedOn  time.Time   `json:"created_on,omitempty"`
+	ModifiedOn time.Time   `json:"modified_on,omitempty"`
 	Type       string      `json:"type,omitempty"`
 	Name       string      `json:"name,omitempty"`
 	Content    string      `json:"content,omitempty"`
-	Proxiable  bool        `json:"proxiable,omitempty"`
-	Proxied    bool        `json:"proxied"`
-	TTL        int         `json:"ttl,omitempty"`
-	Locked     bool        `json:"locked,omitempty"`
+	Meta       interface{} `json:"meta,omitempty"`
+	Data       interface{} `json:"data,omitempty"` // data returned by: SRV, LOC
+	ID         string      `json:"id,omitempty"`
 	ZoneID     string      `json:"zone_id,omitempty"`
 	ZoneName   string      `json:"zone_name,omitempty"`
-	CreatedOn  time.Time   `json:"created_on,omitempty"`
-	ModifiedOn time.Time   `json:"modified_on,omitempty"`
-	Data       interface{} `json:"data,omitempty"` // data returned by: SRV, LOC
-	Meta       interface{} `json:"meta,omitempty"`
-	Priority   int         `json:"priority"`
+	Priority   *uint16     `json:"priority,omitempty"`
+	TTL        int         `json:"ttl,omitempty"`
+	Proxied    *bool       `json:"proxied,omitempty"`
+	Proxiable  bool        `json:"proxiable,omitempty"`
+	Locked     bool        `json:"locked,omitempty"`
+	Comment    string      `json:"comment,omitempty"`
+	Tags       []string    `json:"tags,omitempty"`
 }
 
 // DNSRecordResponse represents the response from the DNS endpoint.
@@ -35,6 +39,42 @@ type DNSRecordResponse struct {
 	ResultInfo `json:"result_info"`
 }
 
+type ListDirection string
+
+const (
+	ListDirectionAsc  ListDirection = "asc"
+	ListDirectionDesc ListDirection = "desc"
+)
+
+type ListDNSRecordsParams struct {
+	Type      string        `url:"type,omitempty"`
+	Name      string        `url:"name,omitempty"`
+	Content   string        `url:"content,omitempty"`
+	Proxied   *bool         `url:"proxied,omitempty"`
+	Comment   string        `url:"comment,omitempty"`
+	Tags      []string      `url:"tag,omitempty"` // potentially multiple `tag=`
+	TagMatch  string        `url:"tag-match,omitempty"`
+	Order     string        `url:"order,omitempty"`
+	Direction ListDirection `url:"direction,omitempty"`
+	Match     string        `url:"match,omitempty"`
+	Priority  *uint16       `url:"-"`
+
+	ResultInfo
+}
+
+type UpdateDNSRecordParams struct {
+	Type     string      `json:"type,omitempty"`
+	Name     string      `json:"name,omitempty"`
+	Content  string      `json:"content,omitempty"`
+	Data     interface{} `json:"data,omitempty"` // data for: SRV, LOC
+	ID       string      `json:"-"`
+	Priority *uint16     `json:"-"` // internal use only
+	TTL      int         `json:"ttl,omitempty"`
+	Proxied  *bool       `json:"proxied,omitempty"`
+	Comment  string      `json:"comment"`
+	Tags     []string    `json:"tags"`
+}
+
 // DNSListResponse represents the response from the list DNS records endpoint.
 type DNSListResponse struct {
 	Result []DNSRecord `json:"result"`
@@ -42,87 +82,141 @@ type DNSListResponse struct {
 	ResultInfo `json:"result_info"`
 }
 
+// listDNSRecordsDefaultPageSize represents the default per_page size of the API.
+var listDNSRecordsDefaultPageSize int = 100
+
+// nontransitionalLookup implements the nontransitional processing as specified in
+// Unicode Technical Standard 46 with almost all checkings off to maximize user freedom.
+var nontransitionalLookup = idna.New(
+	idna.MapForLookup(),
+	idna.StrictDomainName(false),
+	idna.ValidateLabels(false),
+)
+
+// toUTS46ASCII tries to convert IDNs (international domain names)
+// from Unicode form to Punycode, using non-transitional process specified
+// in UTS 46.
+//
+// Note: conversion errors are silently discarded and partial conversion
+// results are used.
+func toUTS46ASCII(name string) string {
+	name, _ = nontransitionalLookup.ToASCII(name)
+	return name
+}
+
+type CreateDNSRecordParams struct {
+	CreatedOn  time.Time   `json:"created_on,omitempty" url:"created_on,omitempty"`
+	ModifiedOn time.Time   `json:"modified_on,omitempty" url:"modified_on,omitempty"`
+	Type       string      `json:"type,omitempty" url:"type,omitempty"`
+	Name       string      `json:"name,omitempty" url:"name,omitempty"`
+	Content    string      `json:"content,omitempty" url:"content,omitempty"`
+	Meta       interface{} `json:"meta,omitempty"`
+	Data       interface{} `json:"data,omitempty"` // data returned by: SRV, LOC
+	ID         string      `json:"id,omitempty"`
+	ZoneID     string      `json:"zone_id,omitempty"`
+	ZoneName   string      `json:"zone_name,omitempty"`
+	Priority   *uint16     `json:"priority,omitempty"`
+	TTL        int         `json:"ttl,omitempty"`
+	Proxied    *bool       `json:"proxied,omitempty" url:"proxied,omitempty"`
+	Proxiable  bool        `json:"proxiable,omitempty"`
+	Locked     bool        `json:"locked,omitempty"`
+	Comment    string      `json:"comment,omitempty" url:"comment,omitempty"`
+	Tags       []string    `json:"tags,omitempty"`
+}
+
 // CreateDNSRecord creates a DNS record for the zone identifier.
 //
 // API reference: https://api.cloudflare.com/#dns-records-for-a-zone-create-dns-record
-func (api *API) CreateDNSRecord(zoneID string, rr DNSRecord) (*DNSRecordResponse, error) {
-	uri := "/zones/" + zoneID + "/dns_records"
-	res, err := api.makeRequest("POST", uri, rr)
+func (api *API) CreateDNSRecord(ctx context.Context, rc *ResourceContainer, params CreateDNSRecordParams) (*DNSRecordResponse, error) {
+	if rc.Identifier == "" {
+		return nil, ErrMissingZoneID
+	}
+	params.Name = toUTS46ASCII(params.Name)
+
+	uri := fmt.Sprintf("/zones/%s/dns_records", rc.Identifier)
+	res, err := api.makeRequestContext(ctx, http.MethodPost, uri, params)
 	if err != nil {
-		return nil, errors.Wrap(err, errMakeRequestError)
+		return nil, err
 	}
 
 	var recordResp *DNSRecordResponse
 	err = json.Unmarshal(res, &recordResp)
 	if err != nil {
-		return nil, errors.Wrap(err, errUnmarshalError)
+		return nil, fmt.Errorf("%s: %w", errUnmarshalError, err)
 	}
 
 	return recordResp, nil
 }
 
-// DNSRecords returns a slice of DNS records for the given zone identifier.
-//
-// This takes a DNSRecord to allow filtering of the results returned.
+// ListDNSRecords returns a slice of DNS records for the given zone identifier.
 //
 // API reference: https://api.cloudflare.com/#dns-records-for-a-zone-list-dns-records
-func (api *API) DNSRecords(zoneID string, rr DNSRecord) ([]DNSRecord, error) {
-	// Construct a query string
-	v := url.Values{}
-	// Request as many records as possible per page - API max is 100
-	v.Set("per_page", "100")
-	if rr.Name != "" {
-		v.Set("name", rr.Name)
-	}
-	if rr.Type != "" {
-		v.Set("type", rr.Type)
-	}
-	if rr.Content != "" {
-		v.Set("content", rr.Content)
+func (api *API) ListDNSRecords(ctx context.Context, rc *ResourceContainer, params ListDNSRecordsParams) ([]DNSRecord, *ResultInfo, error) {
+	if rc.Identifier == "" {
+		return nil, nil, ErrMissingZoneID
 	}
 
-	var query string
+	params.Name = toUTS46ASCII(params.Name)
+
+	autoPaginate := true
+	if params.PerPage >= 1 || params.Page >= 1 {
+		autoPaginate = false
+	}
+
+	if params.PerPage < 1 {
+		params.PerPage = listDNSRecordsDefaultPageSize
+	}
+
+	if params.Page < 1 {
+		params.Page = 1
+	}
+
 	var records []DNSRecord
-	page := 1
+	var listResponse DNSListResponse
 
-	// Loop over makeRequest until what we've fetched all records
 	for {
-		v.Set("page", strconv.Itoa(page))
-		query = "?" + v.Encode()
-		uri := "/zones/" + zoneID + "/dns_records" + query
-		res, err := api.makeRequest("GET", uri, nil)
+		uri := buildURI(fmt.Sprintf("/zones/%s/dns_records", rc.Identifier), params)
+		res, err := api.makeRequestContext(ctx, http.MethodGet, uri, nil)
 		if err != nil {
-			return []DNSRecord{}, errors.Wrap(err, errMakeRequestError)
+			return []DNSRecord{}, &ResultInfo{}, err
 		}
-		var r DNSListResponse
-		err = json.Unmarshal(res, &r)
+		err = json.Unmarshal(res, &listResponse)
 		if err != nil {
-			return []DNSRecord{}, errors.Wrap(err, errUnmarshalError)
+			return []DNSRecord{}, &ResultInfo{}, fmt.Errorf("%s: %w", errUnmarshalError, err)
 		}
-		records = append(records, r.Result...)
-		if r.ResultInfo.Page >= r.ResultInfo.TotalPages {
+		records = append(records, listResponse.Result...)
+		params.ResultInfo = listResponse.ResultInfo.Next()
+		if params.ResultInfo.Done() || !autoPaginate {
 			break
 		}
-		// Loop around and fetch the next page
-		page++
 	}
-	return records, nil
+	return records, &listResponse.ResultInfo, nil
 }
 
-// DNSRecord returns a single DNS record for the given zone & record
+// ErrMissingDNSRecordID is for when DNS record ID is needed but not given.
+var ErrMissingDNSRecordID = errors.New("required DNS record ID missing")
+
+// GetDNSRecord returns a single DNS record for the given zone & record
 // identifiers.
 //
 // API reference: https://api.cloudflare.com/#dns-records-for-a-zone-dns-record-details
-func (api *API) DNSRecord(zoneID, recordID string) (DNSRecord, error) {
-	uri := "/zones/" + zoneID + "/dns_records/" + recordID
-	res, err := api.makeRequest("GET", uri, nil)
+func (api *API) GetDNSRecord(ctx context.Context, rc *ResourceContainer, recordID string) (DNSRecord, error) {
+	if rc.Identifier == "" {
+		return DNSRecord{}, ErrMissingZoneID
+	}
+	if recordID == "" {
+		return DNSRecord{}, ErrMissingDNSRecordID
+	}
+
+	uri := fmt.Sprintf("/zones/%s/dns_records/%s", rc.Identifier, recordID)
+	res, err := api.makeRequestContext(ctx, http.MethodGet, uri, nil)
 	if err != nil {
-		return DNSRecord{}, errors.Wrap(err, errMakeRequestError)
+		return DNSRecord{}, err
 	}
 	var r DNSRecordResponse
 	err = json.Unmarshal(res, &r)
 	if err != nil {
-		return DNSRecord{}, errors.Wrap(err, errUnmarshalError)
+		return DNSRecord{}, fmt.Errorf("%s: %w", errUnmarshalError, err)
 	}
 	return r.Result, nil
 }
@@ -131,28 +225,26 @@ func (api *API) DNSRecord(zoneID, recordID string) (DNSRecord, error) {
 // identifiers.
 //
 // API reference: https://api.cloudflare.com/#dns-records-for-a-zone-update-dns-record
-func (api *API) UpdateDNSRecord(zoneID, recordID string, rr DNSRecord) error {
-	rec, err := api.DNSRecord(zoneID, recordID)
+func (api *API) UpdateDNSRecord(ctx context.Context, rc *ResourceContainer, params UpdateDNSRecordParams) error {
+	if rc.Identifier == "" {
+		return ErrMissingZoneID
+	}
+
+	if params.ID == "" {
+		return ErrMissingDNSRecordID
+	}
+
+	params.Name = toUTS46ASCII(params.Name)
+
+	uri := fmt.Sprintf("/zones/%s/dns_records/%s", rc.Identifier, params.ID)
+	res, err := api.makeRequestContext(ctx, http.MethodPatch, uri, params)
 	if err != nil {
 		return err
-	}
-	// Populate the record name from the existing one if the update didn't
-	// specify it.
-	if rr.Name == "" {
-		rr.Name = rec.Name
-	}
-	if rr.Type == "" {
-		rr.Type = rec.Type
-	}
-	uri := "/zones/" + zoneID + "/dns_records/" + recordID
-	res, err := api.makeRequest("PATCH", uri, rr)
-	if err != nil {
-		return errors.Wrap(err, errMakeRequestError)
 	}
 	var r DNSRecordResponse
 	err = json.Unmarshal(res, &r)
 	if err != nil {
-		return errors.Wrap(err, errUnmarshalError)
+		return fmt.Errorf("%s: %w", errUnmarshalError, err)
 	}
 	return nil
 }
@@ -161,16 +253,23 @@ func (api *API) UpdateDNSRecord(zoneID, recordID string, rr DNSRecord) error {
 // identifiers.
 //
 // API reference: https://api.cloudflare.com/#dns-records-for-a-zone-delete-dns-record
-func (api *API) DeleteDNSRecord(zoneID, recordID string) error {
-	uri := "/zones/" + zoneID + "/dns_records/" + recordID
-	res, err := api.makeRequest("DELETE", uri, nil)
+func (api *API) DeleteDNSRecord(ctx context.Context, rc *ResourceContainer, recordID string) error {
+	if rc.Identifier == "" {
+		return ErrMissingZoneID
+	}
+	if recordID == "" {
+		return ErrMissingDNSRecordID
+	}
+
+	uri := fmt.Sprintf("/zones/%s/dns_records/%s", rc.Identifier, recordID)
+	res, err := api.makeRequestContext(ctx, http.MethodDelete, uri, nil)
 	if err != nil {
-		return errors.Wrap(err, errMakeRequestError)
+		return err
 	}
 	var r DNSRecordResponse
 	err = json.Unmarshal(res, &r)
 	if err != nil {
-		return errors.Wrap(err, errUnmarshalError)
+		return fmt.Errorf("%s: %w", errUnmarshalError, err)
 	}
 	return nil
 }

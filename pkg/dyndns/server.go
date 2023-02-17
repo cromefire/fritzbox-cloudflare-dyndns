@@ -75,8 +75,13 @@ func (s *Server) Handler(w http.ResponseWriter, r *http.Request) {
 			maskLen, _ := prefix.Mask.Size()
 
 			for i := 0; i < net.IPv6len; i++ {
-				if i > maskLen {
-					constructedIp[i] = constructedIp[i] + (*s.localIp)[i]
+				for j := 0; j < 8; j++ {
+					b := constructedIp[i]
+					if (i*8 + j) > maskLen {
+						mask := 0b00000001 << j
+						b += j & mask
+					}
+					constructedIp[i] = b
 				}
 			}
 

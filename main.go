@@ -219,8 +219,18 @@ func startPollServer(out chan<- *net.IP, localIp *net.IP) {
 						constructedIp := make(net.IP, net.IPv6len)
 						copy(constructedIp, prefix.IP)
 
+						maskLen, _ := prefix.Mask.Size()
+
 						for i := 0; i < net.IPv6len; i++ {
-							constructedIp[i] = constructedIp[i] + (*localIp)[i]
+							for j := 0; j < 8; j++ {
+								b := constructedIp[i]
+								lb := (*localIp)[i]
+								if (i*8 + j) > maskLen {
+									var mask byte = 0b00000001 << (8 - j)
+									b += lb & mask
+								}
+								constructedIp[i] = b
+							}
 						}
 
 						log.WithField("prefix", prefix).WithField("ipv6", constructedIp).Info("New IPv6 Prefix found")

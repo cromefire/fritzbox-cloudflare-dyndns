@@ -1,7 +1,9 @@
 package cloudflare
 
 import (
+	"context"
 	"encoding/json"
+	"net/http"
 	"net/url"
 	"path"
 	"strconv"
@@ -33,7 +35,7 @@ type AuditLogResource struct {
 	Type string `json:"type"`
 }
 
-// AuditLog is an resource that represents an update in the cloudflare dash
+// AuditLog is an resource that represents an update in the cloudflare dash.
 type AuditLog struct {
 	Action       AuditLogAction         `json:"action"`
 	Actor        AuditLogActor          `json:"actor"`
@@ -48,7 +50,7 @@ type AuditLog struct {
 	When         time.Time              `json:"when"`
 }
 
-// AuditLogResponse is the response returned from the cloudflare v4 api
+// AuditLogResponse is the response returned from the cloudflare v4 api.
 type AuditLogResponse struct {
 	Response   Response
 	Result     []AuditLog `json:"result"`
@@ -57,15 +59,16 @@ type AuditLogResponse struct {
 
 // AuditLogFilter is an object for filtering the audit log response from the api.
 type AuditLogFilter struct {
-	ID         string
-	ActorIP    string
-	ActorEmail string
-	Direction  string
-	ZoneName   string
-	Since      string
-	Before     string
-	PerPage    int
-	Page       int
+	ID           string
+	ActorIP      string
+	ActorEmail   string
+	HideUserLogs bool
+	Direction    string
+	ZoneName     string
+	Since        string
+	Before       string
+	PerPage      int
+	Page         int
 }
 
 // ToQuery turns an audit log filter in to an HTTP Query Param
@@ -82,6 +85,9 @@ func (a AuditLogFilter) ToQuery() url.Values {
 	}
 	if a.ActorEmail != "" {
 		v.Add("actor.email", a.ActorEmail)
+	}
+	if a.HideUserLogs {
+		v.Add("hide_user_logs", "true")
 	}
 	if a.ZoneName != "" {
 		v.Add("zone.name", a.ZoneName)
@@ -107,23 +113,23 @@ func (a AuditLogFilter) ToQuery() url.Values {
 
 // GetOrganizationAuditLogs will return the audit logs of a specific
 // organization, based on the ID passed in. The audit logs can be
-// filtered based on any argument in the AuditLogFilter
+// filtered based on any argument in the AuditLogFilter.
 //
 // API Reference: https://api.cloudflare.com/#audit-logs-list-organization-audit-logs
-func (api *API) GetOrganizationAuditLogs(organizationID string, a AuditLogFilter) (AuditLogResponse, error) {
+func (api *API) GetOrganizationAuditLogs(ctx context.Context, organizationID string, a AuditLogFilter) (AuditLogResponse, error) {
 	uri := url.URL{
 		Path:       path.Join("/accounts", organizationID, "audit_logs"),
 		ForceQuery: true,
 		RawQuery:   a.ToQuery().Encode(),
 	}
-	res, err := api.makeRequest("GET", uri.String(), nil)
+	res, err := api.makeRequestContext(ctx, http.MethodGet, uri.String(), nil)
 	if err != nil {
 		return AuditLogResponse{}, err
 	}
 	return unmarshalReturn(res)
 }
 
-// unmarshalReturn will unmarshal bytes and return an auditlogresponse
+// unmarshalReturn will unmarshal bytes and return an auditlogresponse.
 func unmarshalReturn(res []byte) (AuditLogResponse, error) {
 	var auditResponse AuditLogResponse
 	err := json.Unmarshal(res, &auditResponse)
@@ -134,16 +140,16 @@ func unmarshalReturn(res []byte) (AuditLogResponse, error) {
 }
 
 // GetUserAuditLogs will return your user's audit logs. The audit logs can be
-// filtered based on any argument in the AuditLogFilter
+// filtered based on any argument in the AuditLogFilter.
 //
 // API Reference: https://api.cloudflare.com/#audit-logs-list-user-audit-logs
-func (api *API) GetUserAuditLogs(a AuditLogFilter) (AuditLogResponse, error) {
+func (api *API) GetUserAuditLogs(ctx context.Context, a AuditLogFilter) (AuditLogResponse, error) {
 	uri := url.URL{
 		Path:       path.Join("/user", "audit_logs"),
 		ForceQuery: true,
 		RawQuery:   a.ToQuery().Encode(),
 	}
-	res, err := api.makeRequest("GET", uri.String(), nil)
+	res, err := api.makeRequestContext(ctx, http.MethodGet, uri.String(), nil)
 	if err != nil {
 		return AuditLogResponse{}, err
 	}

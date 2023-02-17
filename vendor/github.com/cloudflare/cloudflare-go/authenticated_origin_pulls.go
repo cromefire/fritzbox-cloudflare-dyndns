@@ -1,10 +1,11 @@
 package cloudflare
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
+	"net/http"
 	"time"
-
-	"github.com/pkg/errors"
 )
 
 // AuthenticatedOriginPulls represents global AuthenticatedOriginPulls (tls_client_auth) metadata.
@@ -24,15 +25,15 @@ type AuthenticatedOriginPullsResponse struct {
 // GetAuthenticatedOriginPullsStatus returns the configuration details for global AuthenticatedOriginPulls (tls_client_auth).
 //
 // API reference: https://api.cloudflare.com/#zone-settings-get-tls-client-auth-setting
-func (api *API) GetAuthenticatedOriginPullsStatus(zoneID string) (AuthenticatedOriginPulls, error) {
-	uri := "/zones/" + zoneID + "/settings/tls_client_auth"
-	res, err := api.makeRequest("GET", uri, nil)
+func (api *API) GetAuthenticatedOriginPullsStatus(ctx context.Context, zoneID string) (AuthenticatedOriginPulls, error) {
+	uri := fmt.Sprintf("/zones/%s/settings/tls_client_auth", zoneID)
+	res, err := api.makeRequestContext(ctx, http.MethodGet, uri, nil)
 	if err != nil {
-		return AuthenticatedOriginPulls{}, errors.Wrap(err, errMakeRequestError)
+		return AuthenticatedOriginPulls{}, err
 	}
 	var r AuthenticatedOriginPullsResponse
 	if err := json.Unmarshal(res, &r); err != nil {
-		return AuthenticatedOriginPulls{}, errors.Wrap(err, errUnmarshalError)
+		return AuthenticatedOriginPulls{}, fmt.Errorf("%s: %w", errUnmarshalError, err)
 	}
 	return r.Result, nil
 }
@@ -40,8 +41,8 @@ func (api *API) GetAuthenticatedOriginPullsStatus(zoneID string) (AuthenticatedO
 // SetAuthenticatedOriginPullsStatus toggles whether global AuthenticatedOriginPulls is enabled for the zone.
 //
 // API reference: https://api.cloudflare.com/#zone-settings-change-tls-client-auth-setting
-func (api *API) SetAuthenticatedOriginPullsStatus(zoneID string, enable bool) (AuthenticatedOriginPulls, error) {
-	uri := "/zones/" + zoneID + "/settings/tls_client_auth"
+func (api *API) SetAuthenticatedOriginPullsStatus(ctx context.Context, zoneID string, enable bool) (AuthenticatedOriginPulls, error) {
+	uri := fmt.Sprintf("/zones/%s/settings/tls_client_auth", zoneID)
 	var val string
 	if enable {
 		val = "on"
@@ -53,13 +54,13 @@ func (api *API) SetAuthenticatedOriginPullsStatus(zoneID string, enable bool) (A
 	}{
 		Value: val,
 	}
-	res, err := api.makeRequest("PATCH", uri, params)
+	res, err := api.makeRequestContext(ctx, http.MethodPatch, uri, params)
 	if err != nil {
-		return AuthenticatedOriginPulls{}, errors.Wrap(err, errMakeRequestError)
+		return AuthenticatedOriginPulls{}, err
 	}
 	var r AuthenticatedOriginPullsResponse
 	if err := json.Unmarshal(res, &r); err != nil {
-		return AuthenticatedOriginPulls{}, errors.Wrap(err, errUnmarshalError)
+		return AuthenticatedOriginPulls{}, fmt.Errorf("%s: %w", errUnmarshalError, err)
 	}
 	return r.Result, nil
 }

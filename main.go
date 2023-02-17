@@ -226,7 +226,7 @@ func startPollServer(out chan<- *net.IP, localIp *net.IP) {
 							lb := (*localIp)[i]
 							var mask byte = 0b00000000
 							for j := 0; j < 8; j++ {
-								if (i*8 + j) > maskLen {
+								if (i*8 + j) >= maskLen {
 									mask += 0b00000001 << (7 - j)
 								}
 							}

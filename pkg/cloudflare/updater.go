@@ -1,12 +1,14 @@
 package cloudflare
 
 import (
+	"context"
 	"fmt"
 	cf "github.com/cloudflare/cloudflare-go"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/publicsuffix"
 	"net"
 	"strings"
+	"time"
 )
 
 type Action struct {
@@ -154,8 +156,12 @@ func (u *Updater) spawnWorker() {
 					recordType = "A"
 				}
 
+				ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+
+				rc := cf.ZoneIdentifier(action.CfZoneId)
+
 				// Research all current records matching the current scheme
-				records, err := u.api.DNSRecords(action.CfZoneId, cf.DNSRecord{
+				records, _, err := u.api.ListDNSRecords(ctx, rc, cf.ListDNSRecordsParams{
 					Type: recordType,
 					Name: action.DnsRecord,
 				})
@@ -169,11 +175,13 @@ func (u *Updater) spawnWorker() {
 				if len(records) == 0 {
 					alog.Info("Creating DNS record")
 
-					_, err := u.api.CreateDNSRecord(action.CfZoneId, cf.DNSRecord{
+					proxied := false
+
+					_, err := u.api.CreateDNSRecord(ctx, rc, cf.CreateDNSRecordParams{
 						Type:    recordType,
 						Name:    action.DnsRecord,
 						Content: ip.String(),
-						Proxied: false,
+						Proxied: &proxied,
 						TTL:     120,
 						ZoneID:  action.CfZoneId,
 					})
@@ -190,9 +198,10 @@ func (u *Updater) spawnWorker() {
 
 					// Ensure we submit all required fields even if they did not change,otherwise
 					// cloudflare-go might revert them to default values.
-					err := u.api.UpdateDNSRecord(action.CfZoneId, record.ID, cf.DNSRecord{
+					err := u.api.UpdateDNSRecord(ctx, rc, cf.UpdateDNSRecordParams{
+						ID:      record.ID,
 						Content: ip.String(),
-						TTL: record.TTL,
+						TTL:     record.TTL,
 						Proxied: record.Proxied,
 					})
 
@@ -201,6 +210,8 @@ func (u *Updater) spawnWorker() {
 						continue
 					}
 				}
+
+				cancel()
 			}
 
 		}

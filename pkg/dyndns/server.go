@@ -28,8 +28,9 @@ func NewServer(out chan<- *net.IP, localIp *net.IP) *Server {
 // worker once they get submitted.
 //
 // Expected parameters can be
-//   "ipaddr" IPv4 address
-//   "ip6addr" IPv6 address
+//
+//	"ipaddr" IPv4 address
+//	"ip6addr" IPv6 address
 //
 // see https://service.avm.de/help/de/FRITZ-Box-Fon-WLAN-7490/016/hilfe_dyndns
 func (s *Server) Handler(w http.ResponseWriter, r *http.Request) {
@@ -71,8 +72,12 @@ func (s *Server) Handler(w http.ResponseWriter, r *http.Request) {
 			constructedIp := make(net.IP, net.IPv6len)
 			copy(constructedIp, prefix.IP)
 
+			maskLen, _ := prefix.Mask.Size()
+
 			for i := 0; i < net.IPv6len; i++ {
-				constructedIp[i] = constructedIp[i] + (*s.localIp)[i]
+				if i > maskLen {
+					constructedIp[i] = constructedIp[i] + (*s.localIp)[i]
+				}
 			}
 
 			s.log.WithField("prefix", prefix).WithField("ipv6", constructedIp).Info("Forwarding update request for IPv6")

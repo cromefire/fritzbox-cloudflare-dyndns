@@ -75,15 +75,16 @@ func (s *Server) Handler(w http.ResponseWriter, r *http.Request) {
 			maskLen, _ := prefix.Mask.Size()
 
 			for i := 0; i < net.IPv6len; i++ {
+				b := constructedIp[i]
+				lb := (*s.localIp)[i]
+				var mask byte = 0b00000000
 				for j := 0; j < 8; j++ {
-					b := constructedIp[i]
-					lb := (*s.localIp)[i]
 					if (i*8 + j) > maskLen {
-						var mask byte = 0b00000001 << (7 - j)
-						b += lb & mask
+						mask += 0b00000001 << (7 - j)
 					}
-					constructedIp[i] = b
 				}
+				b += lb & mask
+				constructedIp[i] = b
 			}
 
 			s.log.WithField("prefix", prefix).WithField("ipv6", constructedIp).Info("Forwarding update request for IPv6")

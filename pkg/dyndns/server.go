@@ -79,7 +79,7 @@ func (s *Server) Handler(w http.ResponseWriter, r *http.Request) {
 					b := constructedIp[i]
 					lb := (*s.localIp)[i]
 					if (i*8 + j) > maskLen {
-						var mask byte = 0b00000001 << (8 - j)
+						var mask byte = 0b00000001 << (7 - j)
 						b += lb & mask
 					}
 					constructedIp[i] = b

@@ -27,6 +27,9 @@ type Updater struct {
 	api    *cf.API
 
 	In chan *net.IP
+
+	lastIpv4 *net.IP
+	lastIpv6 *net.IP
 }
 
 func NewUpdater() *Updater {
@@ -131,6 +134,15 @@ func (u *Updater) spawnWorker() {
 	for {
 		select {
 		case ip := <-u.In:
+			if ip.To4() == nil {
+				if u.lastIpv6 != nil && u.lastIpv6.Equal(*ip) {
+					continue
+				}
+			} else {
+				if u.lastIpv4 != nil && u.lastIpv4.Equal(*ip) {
+					continue
+				}
+			}
 			log.WithField("ip", ip).Info("Received update request")
 
 			for _, action := range u.actions {
@@ -196,6 +208,10 @@ func (u *Updater) spawnWorker() {
 				for _, record := range records {
 					alog.WithField("record-id", record.ID).Info("Updating DNS record")
 
+					if record.Content == ip.String() {
+						continue
+					}
+
 					// Ensure we submit all required fields even if they did not change,otherwise
 					// cloudflare-go might revert them to default values.
 					err := u.api.UpdateDNSRecord(ctx, rc, cf.UpdateDNSRecordParams{
@@ -214,6 +230,11 @@ func (u *Updater) spawnWorker() {
 				cancel()
 			}
 
+			if ip.To4() == nil {
+				u.lastIpv6 = ip
+			} else {
+				u.lastIpv4 = ip
+			}
 		}
 	}
 }

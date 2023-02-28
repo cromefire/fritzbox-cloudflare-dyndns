@@ -16,27 +16,33 @@ import (
 	"time"
 )
 
+type config struct {
+	enableIPv4 bool
+	enableIPv6 bool
+	localIPv6  net.IP
+}
+
 func main() {
 	// Load any env variables defined in .env.dev files
 	_ = godotenv.Load(".env", ".env.dev")
 
-	updater := newUpdater()
+	config := config{}
+	updater := newUpdater(&config)
 	updater.StartWorker()
 
 	ipv6LocalAddress := os.Getenv("DEVICE_LOCAL_ADDRESS_IPV6")
 
-	var localIp net.IP
 	if ipv6LocalAddress != "" {
-		localIp = net.ParseIP(ipv6LocalAddress)
-		if localIp == nil {
+		config.localIPv6 = net.ParseIP(ipv6LocalAddress)
+		if config.localIPv6 == nil {
 			log.Error("Failed to parse IP from DEVICE_LOCAL_ADDRESS_IPV6, exiting")
 			return
 		}
 		log.Info("Using the IPv6 Prefix to construct the IPv6 Address")
 	}
 
-	startPollServer(updater.In, &localIp)
-	startPushServer(updater.In, &localIp)
+	startPollServer(updater.In, &config)
+	startPushServer(updater.In, &config)
 
 	shutdown := make(chan os.Signal)
 
@@ -83,7 +89,7 @@ func newFritzBox() *avm.FritzBox {
 	return fb
 }
 
-func newUpdater() *cloudflare.Updater {
+func newUpdater(conf *config) *cloudflare.Updater {
 	u := cloudflare.NewUpdater()
 
 	token := os.Getenv("CLOUDFLARE_API_TOKEN")
@@ -109,10 +115,12 @@ func newUpdater() *cloudflare.Updater {
 
 	if ipv4Zone != "" {
 		u.SetIPv4Zones(ipv4Zone)
+		conf.enableIPv4 = true
 	}
 
 	if ipv6Zone != "" {
 		u.SetIPv6Zones(ipv6Zone)
+		conf.enableIPv6 = true
 	}
 
 	var err error
@@ -131,7 +139,7 @@ func newUpdater() *cloudflare.Updater {
 	return u
 }
 
-func startPushServer(out chan<- *net.IP, localIp *net.IP) {
+func startPushServer(out chan<- *net.IP, config *config) {
 	bind := os.Getenv("DYNDNS_SERVER_BIND")
 
 	if bind == "" {
@@ -139,7 +147,7 @@ func startPushServer(out chan<- *net.IP, localIp *net.IP) {
 		return
 	}
 
-	server := dyndns.NewServer(out, localIp)
+	server := dyndns.NewServer(out, &config.localIPv6)
 	server.Username = os.Getenv("DYNDNS_SERVER_USERNAME")
 	server.Password = os.Getenv("DYNDNS_SERVER_PASSWORD")
 
@@ -154,7 +162,7 @@ func startPushServer(out chan<- *net.IP, localIp *net.IP) {
 	}()
 }
 
-func startPollServer(out chan<- *net.IP, localIp *net.IP) {
+func startPollServer(out chan<- *net.IP, config *config) {
 	fritzbox := newFritzBox()
 
 	// Import endpoint polling interval duration
@@ -183,63 +191,70 @@ func startPollServer(out chan<- *net.IP, localIp *net.IP) {
 		poll := func() {
 			log.Debug("Polling WAN IPs from router")
 
-			ipv4, err := fritzbox.GetWanIpv4()
+			if config.enableIPv4 {
+				ipv4, err := fritzbox.GetWanIpv4()
 
-			if err != nil {
-				log.WithError(err).Warn("Failed to poll WAN IPv4 from router")
-			} else {
-				if !lastV4.Equal(ipv4) {
-					log.WithField("ipv4", ipv4).Info("New WAN IPv4 found")
-					out <- &ipv4
-					lastV4 = ipv4
+				if err != nil {
+					log.WithError(err).Warn("Failed to poll WAN IPv4 from router")
+				} else {
+					if !lastV4.Equal(ipv4) {
+						log.WithField("ipv4", ipv4).Info("New WAN IPv4 found")
+						out <- &ipv4
+						lastV4 = ipv4
+					}
 				}
-
+			} else {
+				log.Debug("Skipping WAN IPv4 polling since CLOUDFLARE_ZONES_IPV4 isn't set")
 			}
 
-			if *localIp == nil {
-				ipv6, err := fritzbox.GetwanIpv6()
+			if config.enableIPv6 {
+				if config.localIPv6 == nil {
+					ipv6, err := fritzbox.GetwanIpv6()
 
-				if err != nil {
-					log.WithError(err).Warn("Failed to poll WAN IPv6 from router")
+					if err != nil {
+						log.WithError(err).Warn("Failed to poll WAN IPv6 from router")
+					} else {
+						if !lastV6.Equal(ipv6) {
+							log.WithField("ipv6", ipv6).Info("New WAN IPv6 found")
+							out <- &ipv6
+							lastV6 = ipv6
+						}
+					}
 				} else {
-					if !lastV6.Equal(ipv6) {
-						log.WithField("ipv6", ipv6).Info("New WAN IPv6 found")
-						out <- &ipv6
-						lastV6 = ipv6
+					prefix, err := fritzbox.GetIpv6Prefix()
+
+					if err != nil {
+						log.WithError(err).Warn("Failed to poll IPv6 Prefix from router")
+					} else {
+						if !lastV6.Equal(prefix.IP) {
+
+							constructedIp := make(net.IP, net.IPv6len)
+							copy(constructedIp, prefix.IP)
+
+							maskLen, _ := prefix.Mask.Size()
+
+							for i := 0; i < net.IPv6len; i++ {
+								b := constructedIp[i]
+								lb := (*&config.localIPv6)[i]
+								var mask byte = 0b00000000
+								for j := 0; j < 8; j++ {
+									if (i*8 + j) >= maskLen {
+										mask += 0b00000001 << (7 - j)
+									}
+								}
+								b += lb & mask
+								constructedIp[i] = b
+							}
+
+							log.WithField("prefix", prefix).WithField("ipv6", constructedIp).Info("New IPv6 Prefix found")
+
+							out <- &constructedIp
+							lastV6 = prefix.IP
+						}
 					}
 				}
 			} else {
-				prefix, err := fritzbox.GetIpv6Prefix()
-
-				if err != nil {
-					log.WithError(err).Warn("Failed to poll IPv6 Prefix from router")
-				} else {
-					if !lastV6.Equal(prefix.IP) {
-
-						constructedIp := make(net.IP, net.IPv6len)
-						copy(constructedIp, prefix.IP)
-
-						maskLen, _ := prefix.Mask.Size()
-
-						for i := 0; i < net.IPv6len; i++ {
-							b := constructedIp[i]
-							lb := (*localIp)[i]
-							var mask byte = 0b00000000
-							for j := 0; j < 8; j++ {
-								if (i*8 + j) >= maskLen {
-									mask += 0b00000001 << (7 - j)
-								}
-							}
-							b += lb & mask
-							constructedIp[i] = b
-						}
-
-						log.WithField("prefix", prefix).WithField("ipv6", constructedIp).Info("New IPv6 Prefix found")
-
-						out <- &constructedIp
-						lastV6 = prefix.IP
-					}
-				}
+				log.Debug("Skipping WAN IPv6 polling since CLOUDFLARE_ZONES_IPV6 isn't set")
 			}
 		}
 

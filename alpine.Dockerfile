@@ -30,4 +30,4 @@ COPY --from=server_build /appbuild/fritzbox-cloudflare-dyndns /app/fritzbox-clou
 
 EXPOSE 8080
 
-CMD ["./fritzbox-cloudflare-dyndns"]
+ENTRYPOINT ["./fritzbox-cloudflare-dyndns"]

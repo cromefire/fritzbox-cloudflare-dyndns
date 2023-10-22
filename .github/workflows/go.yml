@@ -25,7 +25,7 @@ jobs:
           CGO_ENABLED: 0
           GOOS: linux
           GOARCH: ${{ matrix.arch }}
-        run: go build -v . -o fritzbox-cloudflare-dyndns
+        run: go build -v -o fritzbox-cloudflare-dyndns .
 
       - name: Tar up
         uses: a7ul/tar-action@v1.1.3

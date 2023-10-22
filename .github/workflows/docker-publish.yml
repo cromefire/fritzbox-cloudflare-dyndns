@@ -129,7 +129,7 @@ jobs:
           file: ${{ matrix.platform.dockerfile && matrix.platform.dockerfile || 'Dockerfile' }}
           build-args: GOARCH=${{ matrix.platform.go }}
           platforms: ${{ matrix.platform.docker }}
-          #push: ${{ github.event_name != 'pull_request' }}
+          push: ${{ github.event_name != 'pull_request' }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -151,7 +151,7 @@ jobs:
   create-manifests:
     runs-on: ubuntu-latest
     needs: [ build ]
-    #if: github.event_name != 'pull_request'
+    if: github.event_name != 'pull_request'
 
     steps:
       - name: Download digests

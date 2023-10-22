@@ -21,6 +21,7 @@ jobs:
             os: linux
           - arch: wasm
             os: wasip1
+            ext: .wasm
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -35,10 +36,10 @@ jobs:
           CGO_ENABLED: 0
           GOOS: ${{ matrix.target.os }}
           GOARCH: ${{ matrix.target.arch }}
-        run: go build -v -o fritzbox-cloudflare-dyndns .
+        run: go build -v -o fritzbox-cloudflare-dyndns${{ matrix.target.ext }} .
 
       - name: Tar up
-        run: tar -cJf "fritzbox-cloudflare-dyndns-${{ matrix.target.arch }}.tar.xz" fritzbox-cloudflare-dyndns
+        run: tar -cJf "fritzbox-cloudflare-dyndns-${{ matrix.target.arch }}.tar.xz" fritzbox-cloudflare-dyndns${{ matrix.target.ext }}
 
       - name: Upload a Build Artifact
         uses: actions/upload-artifact@v3.1.3

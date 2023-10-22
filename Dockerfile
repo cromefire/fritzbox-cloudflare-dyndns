@@ -2,6 +2,8 @@ FROM golang:1.21-alpine as server_build
 
 WORKDIR /appbuild
 
+ARG GOARCH
+
 # Add build deps
 RUN apk add --update gcc g++ git
 

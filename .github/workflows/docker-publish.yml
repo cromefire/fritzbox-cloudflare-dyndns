@@ -206,12 +206,11 @@ jobs:
       - name: Create manifest list and push
         working-directory: /tmp/digests
         run: |
-          set -x
           jq -crj '.tags | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON" > /tmp/extra-manifest.json
           TAGS="$(jq -crj '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON")"
-          docker buildx imagetools create -f /tmp/extra-manifest.json ${TAGS} \
+          docker buildx imagetools create ${TAGS} \
             $(printf '${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@sha256:%s ' *)
-          docker buildx imagetools create -f /tmp/extra-manifest.json --append ${TAGS}
+          docker buildx imagetools create --append -f /tmp/extra-manifest.json ${TAGS}
 
       # Sign the resulting Docker image digest except on PRs.
       # This will only write to the public Rekor transparency log when the Docker

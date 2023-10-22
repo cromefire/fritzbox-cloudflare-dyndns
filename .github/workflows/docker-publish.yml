@@ -224,6 +224,7 @@ jobs:
           for RAW_TAG in RAW_TAGS; do
             TAGS="${TAGS}$(printf "${RAW_TAG}@sha256:%s " *)"
           done
+          echo "Signing ${TAGS}"
           echo "${TAGS}" | xargs -I {} cosign sign --yes {}
 
       - name: Inspect image

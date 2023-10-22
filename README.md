@@ -78,7 +78,8 @@ In your `.env` file or your system environment variables you can be configured:
 You can try the endpoint URL in the browser to make sure you have the correct port, you should receive
 an `404 ERR_NOT_FOUND`.
 
-_Because `FRITZBOX_ENDPOINT_URL` is set by default on the docker image you have to explicitly set it to an empty string_
+_Because `FRITZBOX_ENDPOINT_URL` is set by default on the docker image, you have to explicitly set it to an empty string
+to disable polling_
 
 ## Cloudflare setup
 

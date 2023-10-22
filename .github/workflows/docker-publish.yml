@@ -143,9 +143,8 @@ jobs:
       - name: Export digest
         if: github.event_name != 'pull_request'
         run: |
-          echo "${{ toJSON(steps.build.outputs) }}"
           mkdir -p /tmp/digests
-          touch "/tmp/digests/${{ steps.build.outputs.digest }}"
+          touch "/tmp/digests/${{ steps.build-and-push.outputs.digest }}"
 
       - name: Upload digest
         if: github.event_name != 'pull_request'

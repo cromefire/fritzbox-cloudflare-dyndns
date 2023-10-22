@@ -118,17 +118,6 @@ jobs:
         uses: docker/metadata-action@v5.0.0
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          tags: |
-            type=edge,branch=main
-            type=ref,event=branch
-            type=ref,event=pr
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}}
-            type=sha,enable=false
-          flavor: |
-            latest=true
-            suffix=${{ matrix.platform.flavor }}
 
       # Build and push Docker image with Buildx (don't push on PR)
       # https://github.com/docker/build-push-action
@@ -146,30 +135,34 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # Sign the resulting Docker image digest except on PRs.
-      # This will only write to the public Rekor transparency log when the Docker
-      # repository is public to avoid leaking data.  If you would like to publish
-      # transparency data even for private images, pass --force to cosign below.
-      # https://github.com/sigstore/cosign
-      - name: Sign the published Docker image
-        if: ${{ github.event_name != 'pull_request' }}
-        env:
-          # https://docs.github.com/en/actions/security-guides/security-hardening-for-github-actions#using-an-intermediate-environment-variable
-          TAGS: ${{ steps.meta.outputs.tags }}
-          DIGEST: ${{ steps.build-and-push.outputs.digest }}
-        # This step uses the identity token to provision an ephemeral certificate
-        # against the sigstore community Fulcio instance.
-        run: echo "${TAGS}" | xargs -I {} cosign sign --yes {}@${DIGEST}
+      - name: Export digest
+        run: |
+          mkdir -p /tmp/digests
+          digest="${{ steps.build.outputs.digest }}"
+          touch "/tmp/digests/${digest#sha256:}"
+
+      - name: Upload digest
+        uses: actions/upload-artifact@v3
+        with:
+          name: digests
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
   create-manifests:
-    runs-on: [ self-hosted ]
+    runs-on: ubuntu-latest
     needs: [ build ]
-    if: github.event_name != 'pull_request'
+    #if: github.event_name != 'pull_request'
 
     steps:
+      - name: Download digests
+        uses: actions/download-artifact@v3
+        with:
+          name: digests
+          path: /tmp/digests
+
       # Login against a Docker registry except on PR
       # https://github.com/docker/login-action
       - name: Log into registry ${{ env.REGISTRY }}
-        if: github.event_name != 'pull_request'
         uses: docker/login-action@v3.0.0
         with:
           registry: ${{ env.REGISTRY }}
@@ -193,15 +186,34 @@ jobs:
             type=semver,pattern={{major}}
             type=sha,enable=false
 
-      - name: Create manifests and push
+      - name: Create manifest list and push
         env:
-          TAGS: ${{join(steps.meta.outputs.tags, ' ')}}
+          DOCKER_METADATA_OUTPUT_JSON: ${{ toJSON(steps.meta.outputs) }}
+        working-directory: /tmp/digests
         run: |
-          for TAG in "$TAGS" do
-            docker manifest create \
-              "${TAG}" \
-              "${TAG}-amd64" \
-              "${TAG}-armhf" \
-              "${TAG}-armel"
-            docker manifest push "${TAG}"
+          docker buildx imagetools create $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
+            $(printf '${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@sha256:%s ' *)
+
+      # Sign the resulting Docker image digest except on PRs.
+      # This will only write to the public Rekor transparency log when the Docker
+      # repository is public to avoid leaking data.  If you would like to publish
+      # transparency data even for private images, pass --force to cosign below.
+      # https://github.com/sigstore/cosign
+      - name: Sign the published Docker image
+        working-directory: /tmp/digests
+        env:
+          RAW_TAGS: ${{ join(steps.meta.outputs.tags, ' ') }}
+        # This step uses the identity token to provision an ephemeral certificate
+        # against the sigstore community Fulcio instance.
+        run: |
+          TAGS=""
+          for RAW_TAG in RAW_TAGS; do
+            TAGS="${TAGS}$(printf '${RAW_TAG}@sha256:%s ' *)"
+          done
+          echo "${TAGS}" | xargs -I {} cosign sign --yes {}
+
+      - name: Inspect image
+        run: |
+          for RAW_TAG in RAW_TAGS; do
+            docker buildx imagetools inspect ${RAW_TAG}
           done

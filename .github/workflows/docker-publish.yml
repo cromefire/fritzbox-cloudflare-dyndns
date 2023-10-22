@@ -221,14 +221,18 @@ jobs:
         # against the sigstore community Fulcio instance.
         run: |
           TAGS=""
-          for RAW_TAG in RAW_TAGS; do
+          for RAW_TAG in ${RAW_TAGS}; do
             TAGS="${TAGS}$(printf "${RAW_TAG}@sha256:%s " *)"
           done
-          echo "Signing ${TAGS}"
-          echo "${TAGS}" | xargs -I {} cosign sign --yes {}
+          for TAG in ${TAGS}; do
+            echo "Signing ${TAG}"
+            cosign sign --yes "${TAG}"
+          done
 
       - name: Inspect image
+        env:
+          RAW_TAGS: ${{ join(steps.meta.outputs.tags, ' ') }}
         run: |
-          for RAW_TAG in RAW_TAGS; do
+          for RAW_TAG in ${RAW_TAGS}; do
             docker buildx imagetools inspect ${RAW_TAG}
           done

@@ -144,7 +144,8 @@ jobs:
         if: github.event_name != 'pull_request'
         run: |
           mkdir -p /tmp/digests
-          touch "/tmp/digests/${{ steps.build-and-push.outputs.digest }}"
+          digest="${{ steps.build-and-push.outputs.digest }}"
+          touch "/tmp/digests/${digest#sha265:}"
 
       - name: Upload digest
         if: github.event_name != 'pull_request'

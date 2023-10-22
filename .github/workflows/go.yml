@@ -10,7 +10,16 @@ jobs:
   build:
     strategy:
       matrix:
-        arch: [amd64, arm, arm64, riscv64, wasm]
+        target:
+          - arch: amd64
+            os: linux
+          - arch: arm
+            os: linux
+          - arch: arm64
+            os: linux
+          - arch: riscv64
+            os: linux
+          - arch: wasm
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -23,8 +32,8 @@ jobs:
       - name: Build
         env:
           CGO_ENABLED: 0
-          GOOS: linux
-          GOARCH: ${{ matrix.arch }}
+          GOOS: ${{ matrix.target.os }}
+          GOARCH: ${{ matrix.target.arch }}
         run: go build -v -o fritzbox-cloudflare-dyndns .
 
       - name: Tar up
@@ -32,10 +41,10 @@ jobs:
         with:
           command: cJ
           files: fritzbox-cloudflare-dyndns
-          outPath: fritzbox-cloudflare-dyndns-${{ matrix.arch }}.tar.xz
+          outPath: fritzbox-cloudflare-dyndns-${{ matrix.target.arch }}.tar.xz
 
       - name: Upload a Build Artifact
         uses: actions/upload-artifact@v3.1.3
         with:
-          name: fritzbox-cloudflare-dyndns-${{ matrix.arch }}
-          path: fritzbox-cloudflare-dyndns-${{ matrix.arch }}.tar.xz
+          name: fritzbox-cloudflare-dyndns-${{ matrix.target.arch }}
+          path: fritzbox-cloudflare-dyndns-${{ matrix.target.arch }}.tar.xz

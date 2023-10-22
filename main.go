@@ -1,11 +1,12 @@
 package main
 
 import (
-	"github.com/adrianrudnik/fritzbox-cloudflare-dyndns/pkg/avm"
-	"github.com/adrianrudnik/fritzbox-cloudflare-dyndns/pkg/cloudflare"
-	"github.com/adrianrudnik/fritzbox-cloudflare-dyndns/pkg/dyndns"
+	"github.com/cromefire/fritzbox-cloudflare-dyndns/pkg/avm"
+	"github.com/cromefire/fritzbox-cloudflare-dyndns/pkg/cloudflare"
+	"github.com/cromefire/fritzbox-cloudflare-dyndns/pkg/dyndns"
+	"github.com/cromefire/fritzbox-cloudflare-dyndns/pkg/logging"
 	"github.com/joho/godotenv"
-	log "github.com/sirupsen/logrus"
+	"log/slog"
 	"net"
 	"net/http"
 	"net/url"
@@ -29,10 +30,10 @@ func main() {
 	if ipv6LocalAddress != "" {
 		localIp = net.ParseIP(ipv6LocalAddress)
 		if localIp == nil {
-			log.Error("Failed to parse IP from DEVICE_LOCAL_ADDRESS_IPV6, exiting")
+			slog.Error("Failed to parse IP from DEVICE_LOCAL_ADDRESS_IPV6, exiting")
 			return
 		}
-		log.Info("Using the IPv6 Prefix to construct the IPv6 Address")
+		slog.Info("Using the IPv6 Prefix to construct the IPv6 Address")
 	}
 
 	startPollServer(updater.In, &localIp)
@@ -45,7 +46,7 @@ func main() {
 
 	<-shutdown
 
-	log.Info("Shutdown detected")
+	slog.Info("Shutdown detected")
 }
 
 func newFritzBox() *avm.FritzBox {
@@ -58,12 +59,13 @@ func newFritzBox() *avm.FritzBox {
 		v, err := url.ParseRequestURI(endpointUrl)
 
 		if err != nil {
-			log.WithError(err).Panic("Failed to parse env FRITZBOX_ENDPOINT_URL")
+			slog.Error("Failed to parse env FRITZBOX_ENDPOINT_URL", logging.ErrorAttr(err))
+			panic(err)
 		}
 
 		fb.Url = strings.TrimRight(v.String(), "/")
 	} else {
-		log.Info("Env FRITZBOX_ENDPOINT_URL not found, disabling FritzBox polling")
+		slog.Info("Env FRITZBOX_ENDPOINT_URL not found, disabling FritzBox polling")
 		return nil
 	}
 
@@ -74,7 +76,7 @@ func newFritzBox() *avm.FritzBox {
 		v, err := time.ParseDuration(endpointTimeout)
 
 		if err != nil {
-			log.WithError(err).Warn("Failed to parse FRITZBOX_ENDPOINT_TIMEOUT, using defaults")
+			slog.Warn("Failed to parse FRITZBOX_ENDPOINT_TIMEOUT, using defaults", logging.ErrorAttr(err))
 		} else {
 			fb.Timeout = v
 		}
@@ -84,7 +86,7 @@ func newFritzBox() *avm.FritzBox {
 }
 
 func newUpdater() *cloudflare.Updater {
-	u := cloudflare.NewUpdater()
+	u := cloudflare.NewUpdater(slog.Default())
 
 	token := os.Getenv("CLOUDFLARE_API_TOKEN")
 	email := os.Getenv("CLOUDFLARE_API_EMAIL")
@@ -92,10 +94,10 @@ func newUpdater() *cloudflare.Updater {
 
 	if token == "" {
 		if email == "" || key == "" {
-			log.Info("Env CLOUDFLARE_API_TOKEN not found, disabling CloudFlare updates")
+			slog.Info("Env CLOUDFLARE_API_TOKEN not found, disabling CloudFlare updates")
 			return u
 		} else {
-			log.Warn("Using deprecated credentials via the API key")
+			slog.Warn("Using deprecated credentials via the API key")
 		}
 	}
 
@@ -103,7 +105,7 @@ func newUpdater() *cloudflare.Updater {
 	ipv6Zone := os.Getenv("CLOUDFLARE_ZONES_IPV6")
 
 	if ipv4Zone == "" && ipv6Zone == "" {
-		log.Warn("Env CLOUDFLARE_ZONES_IPV4 and CLOUDFLARE_ZONES_IPV6 not found, disabling CloudFlare updates")
+		slog.Warn("Env CLOUDFLARE_ZONES_IPV4 and CLOUDFLARE_ZONES_IPV6 not found, disabling CloudFlare updates")
 		return u
 	}
 
@@ -124,7 +126,7 @@ func newUpdater() *cloudflare.Updater {
 	}
 
 	if err != nil {
-		log.WithError(err).Error("Failed to init Cloudflare updater, disabling CloudFlare updates")
+		slog.Error("Failed to init Cloudflare updater, disabling CloudFlare updates")
 		return u
 	}
 
@@ -135,22 +137,24 @@ func startPushServer(out chan<- *net.IP, localIp *net.IP) {
 	bind := os.Getenv("DYNDNS_SERVER_BIND")
 
 	if bind == "" {
-		log.Info("Env DYNDNS_SERVER_BIND not found, disabling DynDns server")
+		slog.Info("Env DYNDNS_SERVER_BIND not found, disabling DynDns server")
 		return
 	}
 
-	server := dyndns.NewServer(out, localIp)
+	server := dyndns.NewServer(out, localIp, slog.Default())
 	server.Username = os.Getenv("DYNDNS_SERVER_USERNAME")
 	server.Password = os.Getenv("DYNDNS_SERVER_PASSWORD")
 
 	s := &http.Server{
-		Addr: bind,
+		Addr:     bind,
+		ErrorLog: slog.NewLogLogger(slog.Default().Handler(), slog.LevelInfo),
 	}
 
 	http.HandleFunc("/ip", server.Handler)
 
 	go func() {
-		log.Fatal(s.ListenAndServe())
+		err := s.ListenAndServe()
+		slog.Error("Server stopped", logging.ErrorAttr(err))
 	}()
 }
 
@@ -166,13 +170,13 @@ func startPollServer(out chan<- *net.IP, localIp *net.IP) {
 		v, err := time.ParseDuration(interval)
 
 		if err != nil {
-			log.WithError(err).Warn("Failed to parse FRITZBOX_ENDPOINT_INTERVAL, using defaults")
+			slog.Warn("Failed to parse FRITZBOX_ENDPOINT_INTERVAL, using defaults", logging.ErrorAttr(err))
 			ticker = time.NewTicker(300 * time.Second)
 		} else {
 			ticker = time.NewTicker(v)
 		}
 	} else {
-		log.Info("Env FRITZBOX_ENDPOINT_INTERVAL not found, disabling polling")
+		slog.Info("Env FRITZBOX_ENDPOINT_INTERVAL not found, disabling polling")
 		return
 	}
 
@@ -181,15 +185,15 @@ func startPollServer(out chan<- *net.IP, localIp *net.IP) {
 		lastV6 := net.IP{}
 
 		poll := func() {
-			log.Debug("Polling WAN IPs from router")
+			slog.Debug("Polling WAN IPs from router")
 
 			ipv4, err := fritzbox.GetWanIpv4()
 
 			if err != nil {
-				log.WithError(err).Warn("Failed to poll WAN IPv4 from router")
+				slog.Warn("Failed to poll WAN IPv4 from router", logging.ErrorAttr(err))
 			} else {
 				if !lastV4.Equal(ipv4) {
-					log.WithField("ipv4", ipv4).Info("New WAN IPv4 found")
+					slog.Info("New WAN IPv4 found", slog.Any("ipv4", ipv4))
 					out <- &ipv4
 					lastV4 = ipv4
 				}
@@ -200,10 +204,10 @@ func startPollServer(out chan<- *net.IP, localIp *net.IP) {
 				ipv6, err := fritzbox.GetwanIpv6()
 
 				if err != nil {
-					log.WithError(err).Warn("Failed to poll WAN IPv6 from router")
+					slog.Warn("Failed to poll WAN IPv6 from router", logging.ErrorAttr(err))
 				} else {
 					if !lastV6.Equal(ipv6) {
-						log.WithField("ipv6", ipv6).Info("New WAN IPv6 found")
+						slog.Info("New WAN IPv6 found", slog.Any("ipv6", ipv6))
 						out <- &ipv6
 						lastV6 = ipv6
 					}
@@ -212,7 +216,7 @@ func startPollServer(out chan<- *net.IP, localIp *net.IP) {
 				prefix, err := fritzbox.GetIpv6Prefix()
 
 				if err != nil {
-					log.WithError(err).Warn("Failed to poll IPv6 Prefix from router")
+					slog.Warn("Failed to poll IPv6 Prefix from router", logging.ErrorAttr(err))
 				} else {
 					if !lastV6.Equal(prefix.IP) {
 
@@ -234,7 +238,7 @@ func startPollServer(out chan<- *net.IP, localIp *net.IP) {
 							constructedIp[i] = b
 						}
 
-						log.WithField("prefix", prefix).WithField("ipv6", constructedIp).Info("New IPv6 Prefix found")
+						slog.Info("New IPv6 Prefix found", slog.Any("prefix", prefix), slog.Any("ipv6", constructedIp))
 
 						out <- &constructedIp
 						lastV6 = prefix.IP

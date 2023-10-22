@@ -1,0 +1,48 @@
+name: Go
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        target:
+          - arch: amd64
+            os: linux
+          - arch: arm
+            os: linux
+          - arch: arm64
+            os: linux
+          - arch: riscv64
+            os: linux
+          - arch: wasm
+            os: wasip1
+            ext: .wasm
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.21'
+
+      - name: Build
+        env:
+          CGO_ENABLED: 0
+          GOOS: ${{ matrix.target.os }}
+          GOARCH: ${{ matrix.target.arch }}
+        run: go build -v -o fritzbox-cloudflare-dyndns${{ matrix.target.ext }} .
+
+      - name: Tar up
+        run: tar -cJf "fritzbox-cloudflare-dyndns-${{ matrix.target.arch }}.tar.xz" fritzbox-cloudflare-dyndns${{ matrix.target.ext }}
+
+      - name: Upload a Build Artifact
+        uses: actions/upload-artifact@v3.1.3
+        with:
+          name: fritzbox-cloudflare-dyndns-${{ matrix.target.arch }}
+          path: fritzbox-cloudflare-dyndns-${{ matrix.target.arch }}.tar.xz

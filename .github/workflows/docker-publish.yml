@@ -109,8 +109,8 @@ jobs:
 
       # Build and push Docker image with Buildx (don't push on PR)
       # https://github.com/docker/build-push-action
-      - name: Build and push Docker image
-        id: build-and-push
+      - name: Build and push Docker image in PR
+        id: build-and-push-pr
         uses: docker/build-push-action@v5.0.0
         if: github.event_name == 'pull_request'
         with:
@@ -125,7 +125,7 @@ jobs:
 
       # Build and push Docker image with Buildx (push if not on PR)
       # https://github.com/docker/build-push-action
-      - name: Build and push Docker image
+      - name: Build and push Docker image outside Branch
         id: build-and-push
         uses: docker/build-push-action@v5.0.0
         if: github.event_name != 'pull_request'

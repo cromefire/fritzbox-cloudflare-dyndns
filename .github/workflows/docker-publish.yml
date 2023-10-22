@@ -27,19 +27,16 @@ jobs:
         platform:
           - docker: linux/amd64
             go: amd64
-            dockerfile: Dockerfile
           - docker: linux/arm/v6
             go: arm
             qemu: arm
-            dockerfile: alpine.Dockerfile
+            dockerfile: alpine
           - docker: linux/arm/v7
             go: arm
             qemu: arm
-            dockerfile: Dockerfile
           - docker: linux/arm64
             go: arm64
             qemu: arm64
-            dockerfile: Dockerfile
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -133,7 +130,7 @@ jobs:
         uses: docker/build-push-action@v5.0.0
         with:
           context: .
-          file: ${{ matrix.platform.dockerfile }}
+          file: ${{ matrix.platform.dockerfile && '${{ matrix.platform.dockerfile }}.Dockerfile' || 'Dockerfile' }}
           build-args: GOARCH=${{ matrix.platform.go }}
           platforms: ${{ matrix.platform.docker }}
           push: ${{ github.event_name != 'pull_request' }}

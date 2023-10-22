@@ -204,11 +204,9 @@ jobs:
             type=sha,enable=false
 
       - name: Create manifest list and push
-        env:
-          DOCKER_METADATA_OUTPUT_JSON: ${{ toJSON(steps.meta.outputs) }}
         working-directory: /tmp/digests
         run: |
-          docker buildx imagetools create $(jq -cr '.tags | split("\n") | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
+          docker buildx imagetools create $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
             $(printf '${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@sha256:%s ' *)
 
       # Sign the resulting Docker image digest except on PRs.
@@ -221,7 +219,7 @@ jobs:
         # This step uses the identity token to provision an ephemeral certificate
         # against the sigstore community Fulcio instance.
         run: |
-          RAW_TAGS="$(jq -cr '.tags | split("\n") | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON")"
+          RAW_TAGS="$(jq -cr '.tags | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON")"
           TAGS=""
           for RAW_TAG in ${RAW_TAGS}; do
             TAGS="${TAGS}$(printf "${RAW_TAG}@sha256:%s " *)"
@@ -233,7 +231,7 @@ jobs:
 
       - name: Inspect image
         run: |
-          RAW_TAGS="$(jq -cr '.tags | split("\n") | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON")"
+          RAW_TAGS="$(jq -cr '.tags | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON")"
           for RAW_TAG in ${RAW_TAGS}; do
             echo "Inspecting ${RAW_TAG}"
             docker buildx imagetools inspect "${RAW_TAG}"

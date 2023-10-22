@@ -50,7 +50,7 @@ jobs:
         uses: actions/checkout@v3
 
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v1
+        uses: docker/setup-qemu-action@v3.0.0
         if: matrix.platform.qemu
         with:
           platforms: ${{ matrix.platform.qemu }}
@@ -205,7 +205,7 @@ jobs:
           DOCKER_METADATA_OUTPUT_JSON: ${{ toJSON(steps.meta.outputs) }}
         working-directory: /tmp/digests
         run: |
-          docker buildx imagetools create $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
+          docker buildx imagetools create $(jq -cr '.tags | split("\n") | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
             $(printf '${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@sha256:%s ' *)
 
       # Sign the resulting Docker image digest except on PRs.

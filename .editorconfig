@@ -5,3 +5,10 @@ end_of_line = lf
 insert_final_newline = true
 charset = utf-8
 trim_trailing_whitespace = true
+indent_size = 2
+indent_style = space
+tab_width = 2
+
+[*.go]
+indent_size = 4
+tab_width = 4

@@ -1,13 +1,14 @@
 package dyndns
 
 import (
-	log "github.com/sirupsen/logrus"
+	"github.com/cromefire/fritzbox-cloudflare-dyndns/pkg/logging"
+	"log/slog"
 	"net"
 	"net/http"
 )
 
 type Server struct {
-	log     *log.Entry
+	log     *slog.Logger
 	out     chan<- *net.IP
 	localIp *net.IP
 
@@ -15,9 +16,9 @@ type Server struct {
 	Password string
 }
 
-func NewServer(out chan<- *net.IP, localIp *net.IP) *Server {
+func NewServer(out chan<- *net.IP, localIp *net.IP, log *slog.Logger) *Server {
 	return &Server{
-		log:     log.WithField("module", "dyndns"),
+		log:     log.With(slog.String("module", "dyndns")),
 		out:     out,
 		localIp: localIp,
 	}
@@ -28,8 +29,10 @@ func NewServer(out chan<- *net.IP, localIp *net.IP) *Server {
 // worker once they get submitted.
 //
 // Expected parameters can be
-//   "ipaddr" IPv4 address
-//   "ip6addr" IPv6 address
+//
+//	"v4" IPv4 address
+//	"v6" IPv6 address
+//	"prefix" IPv6 prefix
 //
 // see https://service.avm.de/help/de/FRITZ-Box-Fon-WLAN-7490/016/hilfe_dyndns
 func (s *Server) Handler(w http.ResponseWriter, r *http.Request) {
@@ -50,7 +53,7 @@ func (s *Server) Handler(w http.ResponseWriter, r *http.Request) {
 	// Parse IPv4
 	ipv4 := net.ParseIP(params.Get("v4"))
 	if ipv4 != nil && ipv4.To4() != nil {
-		s.log.WithField("ipv4", ipv4).Info("Forwarding update request for IPv4")
+		s.log.Info("Forwarding update request for IPv4", slog.Any("ipv4", ipv4))
 		s.out <- &ipv4
 	}
 
@@ -58,24 +61,35 @@ func (s *Server) Handler(w http.ResponseWriter, r *http.Request) {
 		// Parse IPv6
 		ipv6 := net.ParseIP(params.Get("v6"))
 		if ipv6 != nil && ipv6.To4() == nil {
-			s.log.WithField("ipv6", ipv6).Info("Forwarding update request for IPv6")
+			s.log.Info("Forwarding update request for IPv6", slog.Any("ipv6", ipv6))
 			s.out <- &ipv6
 		}
 	} else {
 		// Parse Prefix
 		_, prefix, err := net.ParseCIDR(params.Get("prefix"))
 		if err != nil {
-			s.log.WithError(err).Warn("Failed to parse prefix")
+			s.log.Warn("Failed to parse prefix", slog.Any("prefix", prefix), logging.ErrorAttr(err))
 		} else {
 
 			constructedIp := make(net.IP, net.IPv6len)
 			copy(constructedIp, prefix.IP)
 
+			maskLen, _ := prefix.Mask.Size()
+
 			for i := 0; i < net.IPv6len; i++ {
-				constructedIp[i] = constructedIp[i] + (*s.localIp)[i]
+				b := constructedIp[i]
+				lb := (*s.localIp)[i]
+				var mask byte = 0b00000000
+				for j := 0; j < 8; j++ {
+					if (i*8 + j) >= maskLen {
+						mask += 0b00000001 << (7 - j)
+					}
+				}
+				b += lb & mask
+				constructedIp[i] = b
 			}
 
-			s.log.WithField("prefix", prefix).WithField("ipv6", constructedIp).Info("Forwarding update request for IPv6")
+			s.log.Info("Forwarding update request for IPv6", slog.Any("prefix", prefix), slog.Any("ipv6", constructedIp))
 			s.out <- &constructedIp
 		}
 	}

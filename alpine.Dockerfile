@@ -11,7 +11,7 @@ COPY ./ /appbuild
 RUN --mount=type=cache,target=/root/.cache/go-build --mount=type=cache,target=/root/go/pkg/mod CGO_ENABLED=0 GOOS=linux go build -o fritzbox-cloudflare-dyndns
 
 # Build deployable server
-FROM gcr.io/distroless/static:debug
+FROM alpine:3
 
 ENV FRITZBOX_ENDPOINT_URL=${FRITZBOX_ENDPOINT_URL:-http://fritz.box:49000} \
     FRITZBOX_ENDPOINT_TIMEOUT=${FRITZBOX_ENDPOINT_TIMEOUT:-30s} \

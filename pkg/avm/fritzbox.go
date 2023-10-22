@@ -3,7 +3,7 @@ package avm
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net"
 	"net/http"
 	"time"
@@ -41,7 +41,7 @@ func (fb *FritzBox) GetWanIpv4() (net.IP, error) {
 		return nil, err
 	}
 
-	body, err := ioutil.ReadAll(response.Body)
+	body, err := io.ReadAll(response.Body)
 
 	if err != nil {
 		return nil, err
@@ -76,7 +76,7 @@ func (fb *FritzBox) GetwanIpv6() (net.IP, error) {
 		return nil, err
 	}
 
-	body, err := ioutil.ReadAll(response.Body)
+	body, err := io.ReadAll(response.Body)
 
 	if err != nil {
 		return nil, err
@@ -111,7 +111,7 @@ func (fb *FritzBox) GetIpv6Prefix() (*net.IPNet, error) {
 		return nil, err
 	}
 
-	body, err := ioutil.ReadAll(response.Body)
+	body, err := io.ReadAll(response.Body)
 
 	if err != nil {
 		return nil, err

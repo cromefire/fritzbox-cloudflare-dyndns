@@ -30,7 +30,7 @@ jobs:
           - docker: linux/arm/v6
             go: arm
             qemu: arm
-            dockerfile: alpine
+            dockerfile: alpine.Dockerfile
           - docker: linux/arm/v7
             go: arm
             qemu: arm
@@ -130,7 +130,7 @@ jobs:
         uses: docker/build-push-action@v5.0.0
         with:
           context: .
-          file: ${{ matrix.platform.dockerfile && '${{ matrix.platform.dockerfile }}.Dockerfile' || 'Dockerfile' }}
+          file: ${{ matrix.platform.dockerfile && matrix.platform.dockerfile || 'Dockerfile' }}
           build-args: GOARCH=${{ matrix.platform.go }}
           platforms: ${{ matrix.platform.docker }}
           push: ${{ github.event_name != 'pull_request' }}

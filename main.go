@@ -163,6 +163,8 @@ func startPollServer(out chan<- *net.IP, localIp *net.IP) {
 
 	// Import endpoint polling interval duration
 	interval := os.Getenv("FRITZBOX_ENDPOINT_INTERVAL")
+	useIpv4 := os.Getenv("CLOUDFLARE_ZONES_IPV4") != ""
+	useIpv6 := os.Getenv("CLOUDFLARE_ZONES_IPV6") != ""
 
 	var ticker *time.Ticker
 
@@ -187,20 +189,21 @@ func startPollServer(out chan<- *net.IP, localIp *net.IP) {
 		poll := func() {
 			slog.Debug("Polling WAN IPs from router")
 
-			ipv4, err := fritzbox.GetWanIpv4()
+			if useIpv4 {
+				ipv4, err := fritzbox.GetWanIpv4()
 
-			if err != nil {
-				slog.Warn("Failed to poll WAN IPv4 from router", logging.ErrorAttr(err))
-			} else {
-				if !lastV4.Equal(ipv4) {
-					slog.Info("New WAN IPv4 found", slog.Any("ipv4", ipv4))
-					out <- &ipv4
-					lastV4 = ipv4
+				if err != nil {
+					slog.Warn("Failed to poll WAN IPv4 from router", logging.ErrorAttr(err))
+				} else {
+					if !lastV4.Equal(ipv4) {
+						slog.Info("New WAN IPv4 found", slog.Any("ipv4", ipv4))
+						out <- &ipv4
+						lastV4 = ipv4
+					}
 				}
-
 			}
 
-			if *localIp == nil {
+			if *localIp == nil && useIpv6 {
 				ipv6, err := fritzbox.GetwanIpv6()
 
 				if err != nil {
@@ -212,7 +215,7 @@ func startPollServer(out chan<- *net.IP, localIp *net.IP) {
 						lastV6 = ipv6
 					}
 				}
-			} else {
+			} else if useIpv6 {
 				prefix, err := fritzbox.GetIpv6Prefix()
 
 				if err != nil {

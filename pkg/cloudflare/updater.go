@@ -33,9 +33,11 @@ type Updater struct {
 
 func NewUpdater(log *slog.Logger) *Updater {
 	return &Updater{
-		isInit: false,
-		In:     make(chan *net.IP, 10),
-		log:    log.With(slog.String("module", "cloudflare")),
+		isInit:    false,
+		In:        make(chan *net.IP, 10),
+		log:       log.With(slog.String("module", "cloudflare")),
+		ipv4Zones: make([]string, 0),
+		ipv6Zones: make([]string, 0),
 	}
 }
 

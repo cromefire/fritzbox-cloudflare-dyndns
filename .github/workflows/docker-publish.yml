@@ -118,7 +118,7 @@ jobs:
           file: ${{ matrix.platform.dockerfile && matrix.platform.dockerfile || 'Dockerfile' }}
           build-args: GOARCH=${{ matrix.platform.go }}
           platforms: ${{ matrix.platform.docker }}
-          push: true
+          push: false
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -134,7 +134,7 @@ jobs:
           file: ${{ matrix.platform.dockerfile && matrix.platform.dockerfile || 'Dockerfile' }}
           build-args: GOARCH=${{ matrix.platform.go }}
           platforms: ${{ matrix.platform.docker }}
-          push: false
+          push: true
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max

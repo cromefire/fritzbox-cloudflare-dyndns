@@ -233,5 +233,6 @@ jobs:
       - name: Inspect image
         run: |
           for RAW_TAG in "${{ join(steps.meta.outputs.tags, ' ') }}"; do
-            docker buildx imagetools inspect ${RAW_TAG}
+            echo "Inspecting ${RAW_TAG}"
+            docker buildx imagetools inspect "${RAW_TAG}"
           done

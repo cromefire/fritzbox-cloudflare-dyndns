@@ -8,7 +8,7 @@ COPY go.mod go.sum /appbuild/
 
 COPY ./ /appbuild
 
-RUN CGO_ENABLED=0 GOOS=linux go build -o fritzbox-cloudflare-dyndns
+RUN --mount=type=cache,target=/root/.cache/go-build --mount=type=cache,target=/root/go/pkg/mod CGO_ENABLED=0 GOOS=linux go build -o fritzbox-cloudflare-dyndns
 
 # Build deployable server
 FROM alpine:3

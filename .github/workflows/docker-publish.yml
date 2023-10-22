@@ -19,7 +19,6 @@ env:
   # github.repository as <account>/<repo>
   IMAGE_NAME: ${{ github.repository }}
 
-
 jobs:
   build:
     strategy:
@@ -28,18 +27,23 @@ jobs:
         platform:
           - docker: linux/amd64
             go: amd64
+            dockerfile: Dockerfile
           - docker: linux/arm/v6
             go: arm
             qemu: arm
+            dockerfile: alpine.Dockerfile
           - docker: linux/arm/v7
             go: arm
             qemu: arm
+            dockerfile: Dockerfile
           - docker: linux/arm64
             go: arm64
             qemu: arm64
+            dockerfile: Dockerfile
           - docker: linux/riscv64
             go: riscv64
             qemu: riscv64
+            dockerfile: alpine.Dockerfile
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -62,9 +66,9 @@ jobs:
       # https://github.com/sigstore/cosign-installer
       - name: Install cosign
         if: github.event_name != 'pull_request'
-        uses: sigstore/cosign-installer@v3.1.1
+        uses: sigstore/cosign-installer@v3.1.2
         with:
-          cosign-release: 'v2.1.1'
+          cosign-release: 'v2.2.0'
 
       # Set up BuildKit Docker container builder to be able to build
       # multi-platform images and export cache
@@ -103,6 +107,7 @@ jobs:
         uses: docker/build-push-action@v5.0.0
         with:
           context: .
+          file: ${{ matrix.platform.dockerfile }}
           build-args: GOARCH=${{ matrix.platform.go }}
           platforms: ${{ matrix.platform.docker }}
           push: ${{ github.event_name != 'pull_request' }}

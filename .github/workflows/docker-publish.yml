@@ -55,14 +55,6 @@ jobs:
         with:
           platforms: ${{ matrix.platform.qemu }}
 
-      # Install the cosign tool except on PR
-      # https://github.com/sigstore/cosign-installer
-      - name: Install cosign
-        if: github.event_name != 'pull_request'
-        uses: sigstore/cosign-installer@v3.1.2
-        with:
-          cosign-release: 'v2.2.0'
-
       # Set up BuildKit Docker container builder to be able to build
       # multi-platform images and export cache
       # https://github.com/docker/setup-buildx-action
@@ -120,7 +112,7 @@ jobs:
       - name: Build and push Docker image
         id: build-and-push
         uses: docker/build-push-action@v5.0.0
-        if: github.event_name != 'pull_request'
+        if: github.event_name == 'pull_request'
         with:
           context: .
           file: ${{ matrix.platform.dockerfile && matrix.platform.dockerfile || 'Dockerfile' }}
@@ -183,6 +175,13 @@ jobs:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Install the cosign tool except on PR
+      # https://github.com/sigstore/cosign-installer
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v3.1.2
+        with:
+          cosign-release: 'v2.2.0'
 
 
       # Extract metadata (tags, labels) for Docker

@@ -72,16 +72,32 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3.0.0
 
-      - name: Go cache
+      - name: Go package cache
         uses: actions/cache@v3
         with:
-            path: go-cache
-            key: go-cache-${{ hashFiles('go.sum') }}
+            path: go-package-cache
+            key: ${{ matrix.platform.go }}-docker-go-package-${{ hashFiles('go.sum') }}
+            restore-keys: |
+              ${{ matrix.platform.go }}-docker-go-package-
 
-      - name: Inject go cache into docker
+      - name: Go build cache
+        uses: actions/cache@v3
+        with:
+            path: go-build-cache
+            key: ${{ matrix.platform.go }}-docker-go-build-${{ hashFiles('go.sum') }}
+            restore-keys: |
+              ${{ matrix.platform.go }}-docker-go-build-
+
+      - name: Inject go package cache into docker
         uses: reproducible-containers/buildkit-cache-dance@v2.1.2
         with:
-          cache-source: go-cache
+          cache-source: go-package-cache
+          cache-target: /root/go/pkg/mod
+
+      - name: Inject go build cache into docker
+        uses: reproducible-containers/buildkit-cache-dance@v2.1.2
+        with:
+          cache-source: go-build-cache
           cache-target: /root/.cache/go-build
 
       # Login against a Docker registry except on PR

@@ -4,9 +4,6 @@ WORKDIR /appbuild
 
 ARG GOARCH
 
-# Add build deps
-RUN apk add --update gcc g++ git
-
 COPY go.mod go.sum /appbuild/
 
 COPY ./ /appbuild

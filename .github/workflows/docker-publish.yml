@@ -40,10 +40,6 @@ jobs:
             go: arm64
             qemu: arm64
             dockerfile: Dockerfile
-          - docker: linux/riscv64
-            go: riscv64
-            qemu: riscv64
-            dockerfile: alpine.Dockerfile
     runs-on: ubuntu-latest
     permissions:
       contents: read

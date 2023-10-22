@@ -78,6 +78,8 @@ In your `.env` file or your system environment variables you can be configured:
 You can try the endpoint URL in the browser to make sure you have the correct port, you should receive
 an `404 ERR_NOT_FOUND`.
 
+_Because `FRITZBOX_ENDPOINT_URL` is set by default on the docker image you have to explicitly set it to an empty string_
+
 ## Cloudflare setup
 
 To get your API Token do the following: Login to the cloudflare dashboard, go
@@ -152,7 +154,8 @@ process.
 
 ## Docker build
 
-_Note: A pre-built docker image is also available on this GitHub [repository](https://github.com/cromefire/fritzbox-cloudflare-dyndns/pkgs/container/fritzbox-cloudflare-dyndns)._
+_Note: A pre-built docker image is also available on this
+GitHub [repository](https://github.com/cromefire/fritzbox-cloudflare-dyndns/pkgs/container/fritzbox-cloudflare-dyndns)._
 
 More raw approach would be to build and run it yourself:
 

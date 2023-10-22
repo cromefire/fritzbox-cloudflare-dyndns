@@ -27,20 +27,16 @@ jobs:
         platform:
           - docker: linux/amd64
             go: amd64
-            flavor: amd64
           - docker: linux/arm/v6
             go: arm
             qemu: arm
             dockerfile: alpine.Dockerfile
-            flavor: armel
           - docker: linux/arm/v7
             go: arm
             qemu: arm
-            flavor: armhf
           - docker: linux/arm64
             go: arm64
             qemu: arm64
-            flavor: aarch64
     runs-on: ubuntu-latest
     permissions:
       contents: read

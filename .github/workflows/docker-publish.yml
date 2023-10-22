@@ -206,6 +206,7 @@ jobs:
       - name: Create manifest list and push
         working-directory: /tmp/digests
         run: |
+          set -x
           jq -crj '.tags | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON" > /tmp/extra-manifest.json
           TAGS="$(jq -crj '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON")"
           docker buildx imagetools create -f /tmp/extra-manifest.json ${TAGS} \

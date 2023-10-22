@@ -207,8 +207,8 @@ jobs:
           for TAG in "$TAGS" do
             docker manifest create \
               "${TAG}" \
-              --amend "${TAG}-amd64" \
-              --amend "${TAG}-armhf" \
-              --amend "${TAG}-armel"
+              "${TAG}-amd64" \
+              "${TAG}-armhf" \
+              "${TAG}-armel"
             docker manifest push "${TAG}"
           done

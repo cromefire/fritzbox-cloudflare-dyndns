@@ -5,7 +5,6 @@ go 1.21
 require (
 	github.com/cloudflare/cloudflare-go v0.79.0
 	github.com/joho/godotenv v1.5.1
-	github.com/sirupsen/logrus v1.9.3
 	golang.org/x/net v0.17.0
 	gopkg.in/xmlpath.v2 v2.0.0-20150820204837-860cbeca3ebc
 )

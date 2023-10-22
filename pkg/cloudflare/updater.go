@@ -4,8 +4,9 @@ import (
 	"context"
 	"fmt"
 	cf "github.com/cloudflare/cloudflare-go"
-	log "github.com/sirupsen/logrus"
+	"github.com/cromefire/fritzbox-cloudflare-dyndns/pkg/logging"
 	"golang.org/x/net/publicsuffix"
+	"log/slog"
 	"net"
 	"strings"
 	"time"
@@ -25,14 +26,16 @@ type Updater struct {
 
 	isInit bool
 	api    *cf.API
+	log    *slog.Logger
 
 	In chan *net.IP
 }
 
-func NewUpdater() *Updater {
+func NewUpdater(log *slog.Logger) *Updater {
 	return &Updater{
 		isInit: false,
 		In:     make(chan *net.IP, 10),
+		log:    log.With(slog.String("module", "cloudflare")),
 	}
 }
 
@@ -131,7 +134,7 @@ func (u *Updater) spawnWorker() {
 	for {
 		select {
 		case ip := <-u.In:
-			log.WithField("ip", ip).Info("Received update request")
+			u.log.Info("Received update request", slog.Any("ip", ip))
 
 			for _, action := range u.actions {
 				// Skip IPv6 action mismatching IP version
@@ -145,7 +148,7 @@ func (u *Updater) spawnWorker() {
 				}
 
 				// Create detailed sub-logger for this action
-				alog := log.WithField("domain", fmt.Sprintf("%s/IPv%d", action.DnsRecord, action.IpVersion))
+				alog := u.log.With(slog.String("domain", fmt.Sprintf("%s/IPv%d", action.DnsRecord, action.IpVersion)))
 
 				// Decide record type on ip version
 				var recordType string
@@ -167,7 +170,7 @@ func (u *Updater) spawnWorker() {
 				})
 
 				if err != nil {
-					alog.WithError(err).Error("Action failed, could not research DNS records")
+					alog.Error("Action failed, could not research DNS records", logging.ErrorAttr(err))
 					continue
 				}
 
@@ -187,14 +190,14 @@ func (u *Updater) spawnWorker() {
 					})
 
 					if err != nil {
-						alog.WithError(err).Error("Action failed, could not create DNS record")
+						alog.Error("Action failed, could not create DNS record", logging.ErrorAttr(err))
 						continue
 					}
 				}
 
 				// Update existing records
 				for _, record := range records {
-					alog.WithField("record-id", record.ID).Info("Updating DNS record")
+					alog.Info("Updating DNS record", slog.Any("record-id", record.ID))
 
 					// Ensure we submit all required fields even if they did not change,otherwise
 					// cloudflare-go might revert them to default values.
@@ -206,7 +209,7 @@ func (u *Updater) spawnWorker() {
 					})
 
 					if err != nil {
-						alog.WithError(err).Error("Action failed, could not update DNS record")
+						alog.Error("Action failed, could not update DNS record", logging.ErrorAttr(err))
 						continue
 					}
 				}

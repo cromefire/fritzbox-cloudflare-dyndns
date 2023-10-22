@@ -135,7 +135,7 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-          outputs: type=registry,name=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }},push-by-digest=true,name-canonical=true,annotation.${{ join(steps.meta.outputs.labels, ",annotation.") }}
+          outputs: type=registry,name=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }},push-by-digest=true,name-canonical=true,annotation.${{ join(steps.meta.outputs.labels, ',annotation.') }}
 
       - name: Export digest
         if: github.event_name != 'pull_request'

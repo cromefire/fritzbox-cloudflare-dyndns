@@ -222,7 +222,7 @@ jobs:
         # against the sigstore community Fulcio instance.
         run: |
           TAGS=""
-          for RAW_TAG in "${{ join(steps.meta.outputs.tags, ' ') }}"; do
+          for RAW_TAG in "${{ steps.meta.outputs.tags }}"; do
             TAGS="${TAGS}$(printf "${RAW_TAG}@sha256:%s " *)"
           done
           for TAG in ${TAGS}; do
@@ -232,7 +232,7 @@ jobs:
 
       - name: Inspect image
         run: |
-          for RAW_TAG in "${{ join(steps.meta.outputs.tags, ' ') }}"; do
+          for RAW_TAG in "${{ steps.meta.outputs.tags }}"; do
             echo "Inspecting ${RAW_TAG}"
             docker buildx imagetools inspect "${RAW_TAG}"
           done

@@ -206,7 +206,9 @@ jobs:
       - name: Create manifest list and push
         working-directory: /tmp/digests
         run: |
-          docker buildx imagetools create $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
+          jq -cr '.tags | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON" > extra-manifest.json
+          TAGS="$(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON")"
+          docker buildx imagetools create -f extra-manifest.json ${TAGS} \
             $(printf '${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@sha256:%s ' *)
 
       # Sign the resulting Docker image digest except on PRs.

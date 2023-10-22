@@ -195,9 +195,9 @@ func startPollServer(out chan<- *net.IP, localIp *net.IP) {
 				if err != nil {
 					slog.Warn("Failed to poll WAN IPv4 from router", logging.ErrorAttr(err))
 				} else {
+					out <- &ipv4
 					if !lastV4.Equal(ipv4) {
 						slog.Info("New WAN IPv4 found", slog.Any("ipv4", ipv4))
-						out <- &ipv4
 						lastV4 = ipv4
 					}
 				}
@@ -221,29 +221,29 @@ func startPollServer(out chan<- *net.IP, localIp *net.IP) {
 				if err != nil {
 					slog.Warn("Failed to poll IPv6 Prefix from router", logging.ErrorAttr(err))
 				} else {
-					if !lastV6.Equal(prefix.IP) {
+					constructedIp := make(net.IP, net.IPv6len)
+					copy(constructedIp, prefix.IP)
 
-						constructedIp := make(net.IP, net.IPv6len)
-						copy(constructedIp, prefix.IP)
+					maskLen, _ := prefix.Mask.Size()
 
-						maskLen, _ := prefix.Mask.Size()
-
-						for i := 0; i < net.IPv6len; i++ {
-							b := constructedIp[i]
-							lb := (*localIp)[i]
-							var mask byte = 0b00000000
-							for j := 0; j < 8; j++ {
-								if (i*8 + j) >= maskLen {
-									mask += 0b00000001 << (7 - j)
-								}
+					for i := 0; i < net.IPv6len; i++ {
+						b := constructedIp[i]
+						lb := (*localIp)[i]
+						var mask byte = 0b00000000
+						for j := 0; j < 8; j++ {
+							if (i*8 + j) >= maskLen {
+								mask += 0b00000001 << (7 - j)
 							}
-							b += lb & mask
-							constructedIp[i] = b
 						}
+						b += lb & mask
+						constructedIp[i] = b
+					}
 
-						slog.Info("New IPv6 Prefix found", slog.Any("prefix", prefix), slog.Any("ipv6", constructedIp))
+					slog.Info("New IPv6 Prefix found", slog.Any("prefix", prefix), slog.Any("ipv6", constructedIp))
 
-						out <- &constructedIp
+					out <- &constructedIp
+
+					if !lastV6.Equal(prefix.IP) {
 						lastV6 = prefix.IP
 					}
 				}

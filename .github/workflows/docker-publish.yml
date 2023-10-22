@@ -120,24 +120,43 @@ jobs:
       - name: Build and push Docker image
         id: build-and-push
         uses: docker/build-push-action@v5.0.0
+        if: github.event_name != 'pull_request'
         with:
           context: .
           file: ${{ matrix.platform.dockerfile && matrix.platform.dockerfile || 'Dockerfile' }}
           build-args: GOARCH=${{ matrix.platform.go }}
           platforms: ${{ matrix.platform.docker }}
-          push: ${{ github.event_name != 'pull_request' }}
+          push: true
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # Build and push Docker image with Buildx (push if not on PR)
+      # https://github.com/docker/build-push-action
+      - name: Build and push Docker image
+        id: build-and-push
+        uses: docker/build-push-action@v5.0.0
+        if: github.event_name != 'pull_request'
+        with:
+          context: .
+          file: ${{ matrix.platform.dockerfile && matrix.platform.dockerfile || 'Dockerfile' }}
+          build-args: GOARCH=${{ matrix.platform.go }}
+          platforms: ${{ matrix.platform.docker }}
+          push: false
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           outputs: type=image,name=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }},push-by-digest=true,name-canonical=true,push=true
 
       - name: Export digest
+        if: github.event_name != 'pull_request'
         run: |
           mkdir -p /tmp/digests
           digest="${{ steps.build.outputs.digest }}"
           touch "/tmp/digests/${digest#sha256:}"
 
       - name: Upload digest
+        if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@v3
         with:
           name: digests

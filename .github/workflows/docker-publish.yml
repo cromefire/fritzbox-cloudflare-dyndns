@@ -221,8 +221,9 @@ jobs:
         # This step uses the identity token to provision an ephemeral certificate
         # against the sigstore community Fulcio instance.
         run: |
+          RAW_TAGS="$(jq -cr '.tags | split("\n") | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON")"
           TAGS=""
-          for RAW_TAG in "${{ steps.meta.outputs.tags }}"; do
+          for RAW_TAG in ${RAW_TAGS}; do
             TAGS="${TAGS}$(printf "${RAW_TAG}@sha256:%s " *)"
           done
           for TAG in ${TAGS}; do
@@ -232,7 +233,8 @@ jobs:
 
       - name: Inspect image
         run: |
-          for RAW_TAG in "${{ steps.meta.outputs.tags }}"; do
+          RAW_TAGS="$(jq -cr '.tags | split("\n") | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON")"
+          for RAW_TAG in ${RAW_TAGS}; do
             echo "Inspecting ${RAW_TAG}"
             docker buildx imagetools inspect "${RAW_TAG}"
           done

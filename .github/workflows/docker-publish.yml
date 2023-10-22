@@ -145,7 +145,7 @@ jobs:
         run: |
           mkdir -p /tmp/digests
           digest="${{ steps.build-and-push.outputs.digest }}"
-          touch "/tmp/digests/${digest#sha265:}"
+          touch "/tmp/digests/${digest#sha256:}"
 
       - name: Upload digest
         if: github.event_name != 'pull_request'

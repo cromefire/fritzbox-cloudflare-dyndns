@@ -132,7 +132,7 @@ version: '3.7'
 
 services:
   updater:
-    image: adrianrudnik/fritzbox-cloudflare-dyndns
+    image: ghcr.io/cromefire/fritzbox-cloudflare-dyndns:1
     network_mode: host
     # build:
     #   context: .
@@ -152,7 +152,7 @@ process.
 
 ## Docker build
 
-_Note: A pre-built docker image is also available on this docker repository._
+_Note: A pre-built docker image is also available on this GitHub [repository](https://github.com/cromefire/fritzbox-cloudflare-dyndns/pkgs/container/fritzbox-cloudflare-dyndns)._
 
 More raw approach would be to build and run it yourself:
 

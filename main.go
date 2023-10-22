@@ -1,9 +1,9 @@
 package main
 
 import (
-	"github.com/adrianrudnik/fritzbox-cloudflare-dyndns/pkg/avm"
-	"github.com/adrianrudnik/fritzbox-cloudflare-dyndns/pkg/cloudflare"
-	"github.com/adrianrudnik/fritzbox-cloudflare-dyndns/pkg/dyndns"
+	"github.com/cromefire/fritzbox-cloudflare-dyndns/pkg/avm"
+	"github.com/cromefire/fritzbox-cloudflare-dyndns/pkg/cloudflare"
+	"github.com/cromefire/fritzbox-cloudflare-dyndns/pkg/dyndns"
 	"github.com/joho/godotenv"
 	log "github.com/sirupsen/logrus"
 	"net"

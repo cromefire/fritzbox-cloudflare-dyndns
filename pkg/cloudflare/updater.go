@@ -198,7 +198,7 @@ func (u *Updater) spawnWorker() {
 
 					// Ensure we submit all required fields even if they did not change,otherwise
 					// cloudflare-go might revert them to default values.
-					err := u.api.UpdateDNSRecord(ctx, rc, cf.UpdateDNSRecordParams{
+					_, err := u.api.UpdateDNSRecord(ctx, rc, cf.UpdateDNSRecordParams{
 						ID:      record.ID,
 						Content: ip.String(),
 						TTL:     record.TTL,

@@ -108,7 +108,7 @@ jobs:
       # https://github.com/docker/build-push-action
       - name: Build and push Docker image in PR
         id: build-and-push-pr
-        uses: docker/build-push-action@v5.0.0
+        uses: docker/build-push-action@v5.1.0
         if: github.event_name == 'pull_request'
         with:
           context: .
@@ -117,6 +117,7 @@ jobs:
           platforms: ${{ matrix.platform.docker }}
           push: false
           labels: ${{ steps.meta.outputs.labels }}
+          annotations: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -124,7 +125,7 @@ jobs:
       # https://github.com/docker/build-push-action
       - name: Build and push Docker image outside Branch
         id: build-and-push
-        uses: docker/build-push-action@v5.0.0
+        uses: docker/build-push-action@v5.1.0
         if: github.event_name != 'pull_request'
         with:
           context: .
@@ -133,8 +134,7 @@ jobs:
           platforms: ${{ matrix.platform.docker }}
           push: true
           labels: ${{ steps.meta.outputs.labels }}
-          # Wait for https://github.com/docker/build-push-action/issues/958
-          #annotations: ${{ steps.meta.outputs.labels }}
+          annotations: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           outputs: type=registry,name=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }},push-by-digest=true,name-canonical=true

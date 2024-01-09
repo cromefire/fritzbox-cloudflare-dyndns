@@ -57,7 +57,7 @@ Now configure the FRITZ!Box router to push IP changes towards this service. Log 
 | Password   | Enter '_' if `DYNDNS_SERVER_PASSWORD` env is unset                                    |
 
 If you specified credentials you need to append them as additional GET parameters into the Update-URL
-like `&username=<user>&password=<pass>`.
+like `&username=<username>&password=<pass>`.
 
 ### FRITZ!Box polling
 

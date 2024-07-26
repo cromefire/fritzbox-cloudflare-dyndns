@@ -1,4 +1,4 @@
-FROM golang:1.21-alpine as server_build
+FROM golang:1.22-alpine as server_build
 
 WORKDIR /appbuild
 

@@ -155,10 +155,28 @@ process.
 
 ## Docker build
 
-_Note: A pre-built docker image is also available on this
-GitHub [repository](https://github.com/cromefire/fritzbox-cloudflare-dyndns/pkgs/container/fritzbox-cloudflare-dyndns)._
+A pre-built docker image is also available on this
+GitHub [repository](https://github.com/cromefire/fritzbox-cloudflare-dyndns/pkgs/container/fritzbox-cloudflare-dyndns)
+as `ghcr.io/cromefire/fritzbox-cloudflare-dyndns:<version>`.
+The version is something like `1.2` (you can leave out the patch version), please don't use `latest` directly, as it may
+break at any point with a major release.
 
-More raw approach would be to build and run it yourself:
+You can use it with compose like this:
+
+```yaml
+name: "dyndns"
+services:
+  updater:
+    image: "ghcr.io/cromefire/fritzbox-cloudflare-dyndns:<version>"
+    env_file: ./updater.env
+    restart: unless-stopped
+    ports:
+      - 8080/tcp
+```
+
+With your secret configure in the `updater.env` file next to it (as `SOME_VARIABLE=<valua>`).
+
+The more raw approach would be to build and run it yourself:
 
 ```
 docker build -t fritzbox-cloudflare-dyndns .

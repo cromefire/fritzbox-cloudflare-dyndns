@@ -1,4 +1,4 @@
-FROM golang:1.21-alpine as server_build
+FROM golang:1.22-alpine AS server_build
 
 WORKDIR /appbuild
 
@@ -13,11 +13,11 @@ RUN --mount=type=cache,target=/root/.cache/go-build --mount=type=cache,target=/r
 # Build deployable server
 FROM gcr.io/distroless/static:debug
 
-ENV FRITZBOX_ENDPOINT_URL=${FRITZBOX_ENDPOINT_URL:-http://fritz.box:49000} \
-    FRITZBOX_ENDPOINT_TIMEOUT=${FRITZBOX_ENDPOINT_TIMEOUT:-30s} \
-    DYNDNS_SERVER_BIND=${DYNDNS_SERVER_BIND:-:8080} \
-    DYNDNS_SERVER_USERNAME=${DYNDNS_SERVER_USERNAME} \
-    DYNDNS_SERVER_PASSWORD=${DYNDNS_SERVER_PASSWORD} \
+ENV FRITZBOX_ENDPOINT_URL="http://fritz.box:49000" \
+    FRITZBOX_ENDPOINT_TIMEOUT="30s" \
+    DYNDNS_SERVER_BIND=":8080" \
+    DYNDNS_SERVER_USERNAME="" \
+    DYNDNS_SERVER_PASSWORD="" \
     CLOUDFLARE_API_EMAIL="" \
     CLOUDFLARE_API_KEY="" \
     CLOUDFLARE_ZONES_IPV4="" \

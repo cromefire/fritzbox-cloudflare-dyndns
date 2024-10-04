@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"github.com/cromefire/fritzbox-cloudflare-dyndns/pkg/avm"
 	"github.com/cromefire/fritzbox-cloudflare-dyndns/pkg/cloudflare"
 	"github.com/cromefire/fritzbox-cloudflare-dyndns/pkg/dyndns"
@@ -51,7 +52,7 @@ func main() {
 	// Wait for either the context to finish or the shutdown signal
 	select {
 	case <-ctx.Done():
-		slog.Error("Context error", logging.ErrorAttr(context.Cause(ctx)))
+		slog.Error("Context closed", logging.ErrorAttr(context.Cause(ctx)))
 		os.Exit(1)
 	case <-shutdown:
 		break
@@ -165,7 +166,7 @@ func startPushServer(out chan<- *net.IP, localIp *net.IP, cancel context.CancelC
 
 	go func() {
 		err := s.ListenAndServe()
-		cancel(err)
+		cancel(errors.Join(errors.New("http server error"), err))
 	}()
 }
 

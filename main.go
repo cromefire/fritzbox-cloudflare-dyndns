@@ -100,9 +100,9 @@ func newFritzBox() *avm.FritzBox {
 func newUpdater() *cloudflare.Updater {
 	u := cloudflare.NewUpdater(slog.Default())
 
-	token := os.Getenv("CLOUDFLARE_API_TOKEN")
+	token := readSecret("CLOUDFLARE_API_TOKEN")
 	email := os.Getenv("CLOUDFLARE_API_EMAIL")
-	key := os.Getenv("CLOUDFLARE_API_KEY")
+	key := readSecret("CLOUDFLARE_API_KEY")
 
 	if token == "" {
 		if email == "" || key == "" {
@@ -155,7 +155,7 @@ func startPushServer(out chan<- *net.IP, localIp *net.IP, cancel context.CancelC
 
 	server := dyndns.NewServer(out, localIp, slog.Default())
 	server.Username = os.Getenv("DYNDNS_SERVER_USERNAME")
-	server.Password = os.Getenv("DYNDNS_SERVER_PASSWORD")
+	server.Password = readSecret("DYNDNS_SERVER_PASSWORD")
 
 	s := &http.Server{
 		Addr:     bind,
@@ -271,4 +271,23 @@ func startPollServer(out chan<- *net.IP, localIp *net.IP) {
 			}
 		}
 	}()
+}
+
+func readSecret(envName string) string {
+	password := os.Getenv(envName)
+
+	if password != "" {
+		return password
+	}
+
+	passwordFilePath := os.Getenv(envName + "_FILE")
+	if passwordFilePath != "" {
+		content, err := os.ReadFile(passwordFilePath)
+		if err != nil {
+			slog.Error("Failed to read DynDns server password from file", logging.ErrorAttr(err))
+		} else {
+			password = string(content)
+		}
+	}
+	return password
 }

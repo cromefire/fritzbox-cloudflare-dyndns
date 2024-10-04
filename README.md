@@ -126,6 +126,12 @@ like `::1234:5678:90ab:cdef` to `::1:1234:5678:90ab:cdef`
 |---------------------------|-------------------------------------------------|
 | DEVICE_LOCAL_ADDRESS_IPV6 | required, enter the local part of the device IP |
 
+## Secrets
+
+Each secret can be passed either as an environment variable directly, or via a file.
+In order to pass a secret via a file, append `_FILE` to the respective environment variable name and configure it to point to the file containing the secret.
+For example in order to pass the Cloudflare API token via a file, configure an environment variable with name `CLOUDFLARE_API_TOKEN_FILE` with the absolute path to a file containing the secret.
+
 ## Docker compose setup
 
 Here is an example `docker-compose.yml` with all features activated:

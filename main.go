@@ -274,10 +274,10 @@ func startPollServer(out chan<- *net.IP, localIp *net.IP) {
 }
 
 func readSecret(envName string) string {
-	password := os.Getenv(envName)
+	secret := os.Getenv(envName)
 
-	if password != "" {
-		return password
+	if secret != "" {
+		return secret
 	}
 
 	passwordFilePath := os.Getenv(envName + "_FILE")
@@ -286,8 +286,8 @@ func readSecret(envName string) string {
 		if err != nil {
 			slog.Error("Failed to read DynDns server password from file", logging.ErrorAttr(err))
 		} else {
-			password = string(content)
+			secret = string(content)
 		}
 	}
-	return password
+	return secret
 }

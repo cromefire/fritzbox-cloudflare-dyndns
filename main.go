@@ -1,6 +1,8 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"github.com/cromefire/fritzbox-cloudflare-dyndns/pkg/avm"
 	"github.com/cromefire/fritzbox-cloudflare-dyndns/pkg/cloudflare"
 	"github.com/cromefire/fritzbox-cloudflare-dyndns/pkg/dyndns"
@@ -24,6 +26,8 @@ func main() {
 	updater := newUpdater()
 	updater.StartWorker()
 
+	ctx, cancel := context.WithCancelCause(context.Background())
+
 	ipv6LocalAddress := os.Getenv("DEVICE_LOCAL_ADDRESS_IPV6")
 
 	var localIp net.IP
@@ -37,14 +41,22 @@ func main() {
 	}
 
 	startPollServer(updater.In, &localIp)
-	startPushServer(updater.In, &localIp)
+	startPushServer(updater.In, &localIp, cancel)
 
+	// Create a OS signal shutdown channel
 	shutdown := make(chan os.Signal)
 
 	signal.Notify(shutdown, syscall.SIGTERM)
 	signal.Notify(shutdown, syscall.SIGINT)
 
-	<-shutdown
+	// Wait for either the context to finish or the shutdown signal
+	select {
+	case <-ctx.Done():
+		slog.Error("Context closed", logging.ErrorAttr(context.Cause(ctx)))
+		os.Exit(1)
+	case <-shutdown:
+		break
+	}
 
 	slog.Info("Shutdown detected")
 }
@@ -133,7 +145,7 @@ func newUpdater() *cloudflare.Updater {
 	return u
 }
 
-func startPushServer(out chan<- *net.IP, localIp *net.IP) {
+func startPushServer(out chan<- *net.IP, localIp *net.IP, cancel context.CancelCauseFunc) {
 	bind := os.Getenv("DYNDNS_SERVER_BIND")
 
 	if bind == "" {
@@ -154,7 +166,7 @@ func startPushServer(out chan<- *net.IP, localIp *net.IP) {
 
 	go func() {
 		err := s.ListenAndServe()
-		slog.Error("Server stopped", logging.ErrorAttr(err))
+		cancel(errors.Join(errors.New("http server error"), err))
 	}()
 }
 

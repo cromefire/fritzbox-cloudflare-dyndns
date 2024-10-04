@@ -94,7 +94,7 @@ func newUpdater() *cloudflare.Updater {
 
 	if token == "" {
 		if email == "" || key == "" {
-			slog.Info("Env CLOUDFLARE_API_TOKEN not found, disabling CloudFlare updates")
+			slog.Info("Env CLOUDFLARE_API_TOKEN not found, disabling Cloudflare updates")
 			return u
 		} else {
 			slog.Warn("Using deprecated credentials via the API key")
@@ -105,7 +105,7 @@ func newUpdater() *cloudflare.Updater {
 	ipv6Zone := os.Getenv("CLOUDFLARE_ZONES_IPV6")
 
 	if ipv4Zone == "" && ipv6Zone == "" {
-		slog.Warn("Env CLOUDFLARE_ZONES_IPV4 and CLOUDFLARE_ZONES_IPV6 not found, disabling CloudFlare updates")
+		slog.Warn("Env CLOUDFLARE_ZONES_IPV4 and CLOUDFLARE_ZONES_IPV6 not found, disabling Cloudflare updates")
 		return u
 	}
 
@@ -126,7 +126,7 @@ func newUpdater() *cloudflare.Updater {
 	}
 
 	if err != nil {
-		slog.Error("Failed to init Cloudflare updater, disabling CloudFlare updates")
+		slog.Error("Failed to init Cloudflare updater, disabling Cloudflare updates")
 		return u
 	}
 

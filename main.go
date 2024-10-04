@@ -284,7 +284,7 @@ func readSecret(envName string) string {
 	if passwordFilePath != "" {
 		content, err := os.ReadFile(passwordFilePath)
 		if err != nil {
-			slog.Error("Failed to read DynDns server password from file", logging.ErrorAttr(err))
+			slog.Error("Failed to read secret from file "+passwordFilePath, logging.ErrorAttr(err))
 		} else {
 			secret = string(content)
 		}

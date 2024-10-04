@@ -73,7 +73,7 @@ func (u *Updater) InitWithKey(email string, key string) error {
 }
 
 func (u *Updater) init(api *cf.API) error {
-	// Create unique list of zones and fetch their CloudFlare zone IDs
+	// Create unique list of zones and fetch their Cloudflare zone IDs
 	zoneIdMap := make(map[string]string)
 
 	for _, val := range u.ipv4Zones {

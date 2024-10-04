@@ -6,7 +6,7 @@ This project has some simple goals:
 - Allow for two different combined strategies: Polling (through FRITZ!Box SOAP-API) and Pushing (FRITZ!Box Custom-DynDns
   setting).
 - Allow multiple domains to be updated with new A (IPv4) and AAAA (IPv6) records
-- Push those IP changes directly to CloudFlare DNS
+- Push those IP changes directly to Cloudflare DNS
 - Deploy in docker compose
 
 If this fits for you, skim over the CNAME workaround if this is a better solution for you, otherwise feel free to visit
@@ -183,5 +183,5 @@ docker build -t fritzbox-cloudflare-dyndns .
 docker run --rm -it -p 8888:8080 fritzbox-cloudflare-dyndns
 ```
 
-If you leave `CLOUDFLARE_*` unconfigured, pushing to CloudFlare will be disabled for testing purposes, so try to
+If you leave `CLOUDFLARE_*` unconfigured, pushing to Cloudflare will be disabled for testing purposes, so try to
 trigger it by calling `http://127.0.0.1:8888/ip?v4=127.0.0.1&v6=::1` and review the logs.

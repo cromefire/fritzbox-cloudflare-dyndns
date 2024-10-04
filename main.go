@@ -25,7 +25,7 @@ func main() {
 	updater := newUpdater()
 	updater.StartWorker()
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancelCause(context.Background())
 
 	ipv6LocalAddress := os.Getenv("DEVICE_LOCAL_ADDRESS_IPV6")
 
@@ -51,7 +51,8 @@ func main() {
 	// Wait for either the context to finish or the shutdown signal
 	select {
 	case <-ctx.Done():
-		break
+		slog.Error("Context error", logging.ErrorAttr(context.Cause(ctx)))
+		os.Exit(1)
 	case <-shutdown:
 		break
 	}
@@ -143,7 +144,7 @@ func newUpdater() *cloudflare.Updater {
 	return u
 }
 
-func startPushServer(out chan<- *net.IP, localIp *net.IP, cancel context.CancelFunc) {
+func startPushServer(out chan<- *net.IP, localIp *net.IP, cancel context.CancelCauseFunc) {
 	bind := os.Getenv("DYNDNS_SERVER_BIND")
 
 	if bind == "" {
@@ -164,8 +165,7 @@ func startPushServer(out chan<- *net.IP, localIp *net.IP, cancel context.CancelF
 
 	go func() {
 		err := s.ListenAndServe()
-		slog.Error("Server stopped", logging.ErrorAttr(err))
-		cancel()
+		cancel(err)
 	}()
 }
 

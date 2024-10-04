@@ -188,4 +188,4 @@ trigger it by calling `http://127.0.0.1:8888/ip?v4=127.0.0.1&v6=::1` and review 
 
 ## History & Credit
 
-Most of the credit goes to @adrianrudnik, who wrote and maintained the software for years. Meanwhile I stepped in at a later point when the repository was transferred to me to continue its basic maintenance should it be required.
+Most of the credit goes to [@adrianrudnik](https://github.com/adrianrudnik), who wrote and maintained the software for years. Meanwhile I stepped in at a later point when the repository was transferred to me to continue its basic maintenance should it be required.

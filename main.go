@@ -147,7 +147,7 @@ func startPushServer(out chan<- *net.IP, localIp *net.IP) {
 
 	s := &http.Server{
 		Addr:     bind,
-		ErrorLog: slog.NewLogLogger(slog.Default().Handler(), slog.LevelInfo),
+		ErrorLog: slog.NewLogLogger(slog.Default().Handler(), slog.LevelError),
 	}
 
 	http.HandleFunc("/ip", server.Handler)

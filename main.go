@@ -50,6 +50,7 @@ func main() {
 		Updates: updateStatus,
 	}
 	if bind != "" {
+		// TODO: Read from file
 		token := os.Getenv("METRICS_TOKEN")
 		startMetricsServer(bind, rootLogger, status, token, cancel)
 	}
@@ -166,7 +167,7 @@ func startMetricsServer(bind string, logger *slog.Logger, status util.Status, to
 	logger = logger.With(util.SubsystemAttr(subsystem))
 	metricsMux := http.NewServeMux()
 	metricsMux.Handle("/metrics", promhttp.Handler())
-	metricsMux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+	metricsMux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json; charset=utf-8")
 		if status.Poll != nil && !status.Poll.Succeeded {
 			w.WriteHeader(http.StatusServiceUnavailable)
@@ -193,6 +194,9 @@ func startMetricsServer(bind string, logger *slog.Logger, status util.Status, to
 			logger.Error("Failed to encode health check response", util.ErrorAttr(err))
 			return
 		}
+	})
+	metricsMux.HandleFunc("/liveness", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
 	})
 
 	metricServer := &http.Server{

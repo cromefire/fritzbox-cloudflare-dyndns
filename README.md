@@ -171,7 +171,7 @@ services:
     env_file: ./updater.env
     restart: unless-stopped
     ports:
-      - 8080/tcp
+      - "8080/tcp"
 ```
 
 With your secret configure in the `updater.env` file next to it (as `SOME_VARIABLE=<valua>`).
@@ -186,6 +186,25 @@ docker run --rm -it -p 8888:8080 fritzbox-cloudflare-dyndns
 If you leave `CLOUDFLARE_*` unconfigured, pushing to Cloudflare will be disabled for testing purposes, so try to
 trigger it by calling `http://127.0.0.1:8888/ip?v4=127.0.0.1&v6=::1` and review the logs.
 
+## Metrics and Health Check
+
+If you want to check whether the service is running correctly, you can configure these with the following variables:
+
+| Variable name | Description                                                  |
+|---------------|--------------------------------------------------------------|
+| METRICS_BIND  | required, network interface to bind to, i.e. `:9876`         |
+| METRICS_TOKEN | token that has to be passed to the endpoints to authenticate |
+
+The endpoint for prometheus-compatible metrics is `/metrics`, the endpoint for the health check is `/healthz` and the
+endpoint for liveness is `/liveness` on the configured network bind.
+If you chose to use a token, you'll have to append it using the query like `/metrics?token=123456`.
+
+The difference between the liveness and the health endpoint is that the health endpoint will return `503` if any
+subsystem has an issue and `200` if not, while the liveness endpoint will always return `204` as long as the HTTP server
+is able to respond.
+
 ## History & Credit
 
-Most of the credit goes to [@adrianrudnik](https://github.com/adrianrudnik), who wrote and maintained the software for years. Meanwhile I stepped in at a later point when the repository was transferred to me to continue its basic maintenance should it be required.
+Most of the credit goes to [@adrianrudnik](https://github.com/adrianrudnik), who wrote and maintained the software for
+years. After he moved on I stepped in at a later point when the repository was transferred to me to continue its basic
+maintenance should it be required.

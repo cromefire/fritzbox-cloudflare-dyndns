@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	cf "github.com/cloudflare/cloudflare-go"
-	"github.com/cromefire/fritzbox-cloudflare-dyndns/pkg/logging"
+	"github.com/cromefire/fritzbox-cloudflare-dyndns/pkg/util"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"golang.org/x/net/publicsuffix"
 	"log/slog"
 	"net"
@@ -15,7 +17,10 @@ import (
 type Action struct {
 	DnsRecord string
 	CfZoneId  string
-	IpVersion int
+	IpVersion uint8
+
+	updates prometheus.Summary
+	status  *util.UpdateStatus
 }
 
 type Updater struct {
@@ -32,16 +37,29 @@ type Updater struct {
 
 	lastIpv4 *net.IP
 	lastIpv6 *net.IP
+
+	subsystem string
 }
 
-func NewUpdater(log *slog.Logger) *Updater {
+func NewUpdater(log *slog.Logger, subsystem string) *Updater {
 	return &Updater{
 		isInit:    false,
 		In:        make(chan *net.IP, 10),
 		log:       log.With(slog.String("module", "cloudflare")),
 		ipv4Zones: make([]string, 0),
 		ipv6Zones: make([]string, 0),
+		subsystem: subsystem,
 	}
+}
+
+func (u Updater) makeSummary(labels prometheus.Labels) prometheus.Summary {
+	return promauto.NewSummary(prometheus.SummaryOpts{
+		Subsystem:   util.MakePromSubsystem(u.subsystem),
+		Name:        "update_seconds",
+		Help:        "A summary of the push server executions",
+		Objectives:  map[float64]float64{0.5: 0.05, 0.9: 0.01, 0.99: 0.001},
+		ConstLabels: labels,
+	})
 }
 
 func (u *Updater) SetIPv4Zones(zones string) {
@@ -52,27 +70,27 @@ func (u *Updater) SetIPv6Zones(zones string) {
 	u.ipv6Zones = strings.Split(zones, ",")
 }
 
-func (u *Updater) InitWithToken(token string) error {
+func (u *Updater) InitWithToken(token string) (error, []*util.UpdateStatus) {
 	api, err := cf.NewWithAPIToken(token)
 
 	if err != nil {
-		return err
+		return err, nil
 	}
 
 	return u.init(api)
 }
 
-func (u *Updater) InitWithKey(email string, key string) error {
+func (u *Updater) InitWithKey(email string, key string) (error, []*util.UpdateStatus) {
 	api, err := cf.New(key, email)
 
 	if err != nil {
-		return err
+		return err, nil
 	}
 
 	return u.init(api)
 }
 
-func (u *Updater) init(api *cf.API) error {
+func (u *Updater) init(api *cf.API) (error, []*util.UpdateStatus) {
 	// Create unique list of zones and fetch their Cloudflare zone IDs
 	zoneIdMap := make(map[string]string)
 
@@ -88,34 +106,52 @@ func (u *Updater) init(api *cf.API) error {
 		zone, err := publicsuffix.EffectiveTLDPlusOne(val)
 
 		if err != nil {
-			return err
+			return err, nil
 		}
 
 		id, err := api.ZoneIDByName(zone)
 
 		if err != nil {
-			return err
+			return err, nil
 		}
 
 		zoneIdMap[val] = id
 	}
 
+	statusVec := []*util.UpdateStatus{}
+
 	// Now create an updater action list
 	for _, val := range u.ipv4Zones {
+		zoneId := zoneIdMap[val]
+		labels := prometheus.Labels{"record": val, "ip_version": "4"}
+		updates := u.makeSummary(labels)
+		status := util.UpdateStatus{Domain: val, IpVersion: 4, Succeeded: true}
+		statusVec = append(statusVec, &status)
+
 		a := &Action{
 			DnsRecord: val,
-			CfZoneId:  zoneIdMap[val],
+			CfZoneId:  zoneId,
 			IpVersion: 4,
+			updates:   updates,
+			status:    &status,
 		}
 
 		u.actions = append(u.actions, a)
 	}
 
 	for _, val := range u.ipv6Zones {
+		zoneId := zoneIdMap[val]
+		labels := prometheus.Labels{"record": val, "ip_version": "6"}
+		updates := u.makeSummary(labels)
+		status := util.UpdateStatus{Domain: val, IpVersion: 4, Succeeded: true}
+		statusVec = append(statusVec, &status)
+
 		a := &Action{
 			DnsRecord: val,
-			CfZoneId:  zoneIdMap[val],
+			CfZoneId:  zoneId,
 			IpVersion: 6,
+			updates:   updates,
+			status:    &status,
 		}
 
 		u.actions = append(u.actions, a)
@@ -124,7 +160,7 @@ func (u *Updater) init(api *cf.API) error {
 	u.api = api
 	u.isInit = true
 
-	return nil
+	return nil, statusVec
 }
 
 func (u *Updater) StartWorker() {
@@ -151,6 +187,8 @@ func (u *Updater) spawnWorker() {
 			u.log.Info("Received update request", slog.Any("ip", ip))
 
 			for _, action := range u.actions {
+				timer := prometheus.NewTimer(action.updates)
+
 				// Skip IPv6 action mismatching IP version
 				if ip.To4() == nil && action.IpVersion != 6 {
 					continue
@@ -184,7 +222,9 @@ func (u *Updater) spawnWorker() {
 				})
 
 				if err != nil {
-					alog.Error("Action failed, could not research DNS records", logging.ErrorAttr(err))
+					alog.Error("Action failed, could not research DNS records", util.ErrorAttr(err))
+					action.status.Last = time.Now()
+					action.status.Succeeded = false
 					continue
 				}
 
@@ -203,7 +243,9 @@ func (u *Updater) spawnWorker() {
 					})
 
 					if err != nil {
-						alog.Error("Action failed, could not create DNS record", logging.ErrorAttr(err))
+						alog.Error("Action failed, could not create DNS record", util.ErrorAttr(err))
+						action.status.Last = time.Now()
+						action.status.Succeeded = false
 						continue
 					}
 				}
@@ -213,6 +255,8 @@ func (u *Updater) spawnWorker() {
 					alog.Info("Updating DNS record", slog.Any("record-id", record.ID))
 
 					if record.Content == ip.String() {
+						action.status.Last = time.Now()
+						action.status.Succeeded = true
 						continue
 					}
 
@@ -226,12 +270,19 @@ func (u *Updater) spawnWorker() {
 					})
 
 					if err != nil {
-						alog.Error("Action failed, could not update DNS record", logging.ErrorAttr(err))
+						alog.Error("Action failed, could not update DNS record", util.ErrorAttr(err))
+						action.status.Last = time.Now()
+						action.status.Succeeded = false
 						continue
 					}
 				}
 
 				cancel()
+
+				action.status.Last = time.Now()
+				action.status.Succeeded = true
+
+				timer.ObserveDuration()
 			}
 
 			if ip.To4() == nil {

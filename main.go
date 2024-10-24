@@ -2,28 +2,29 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
-	"github.com/cromefire/fritzbox-cloudflare-dyndns/pkg/avm"
 	"github.com/cromefire/fritzbox-cloudflare-dyndns/pkg/cloudflare"
 	"github.com/cromefire/fritzbox-cloudflare-dyndns/pkg/dyndns"
-	"github.com/cromefire/fritzbox-cloudflare-dyndns/pkg/logging"
+	"github.com/cromefire/fritzbox-cloudflare-dyndns/pkg/polling"
+	"github.com/cromefire/fritzbox-cloudflare-dyndns/pkg/util"
 	"github.com/joho/godotenv"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"log/slog"
 	"net"
 	"net/http"
-	"net/url"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
-	"time"
 )
 
 func main() {
 	// Load any env variables defined in .env.dev files
 	_ = godotenv.Load(".env", ".env.dev")
 
-	updater := newUpdater()
+	rootLogger := slog.Default()
+
+	updater, updateStatus := newUpdater(rootLogger)
 	updater.StartWorker()
 
 	ctx, cancel := context.WithCancelCause(context.Background())
@@ -34,14 +35,24 @@ func main() {
 	if ipv6LocalAddress != "" {
 		localIp = net.ParseIP(ipv6LocalAddress)
 		if localIp == nil {
-			slog.Error("Failed to parse IP from DEVICE_LOCAL_ADDRESS_IPV6, exiting")
+			rootLogger.Error("Failed to parse IP from DEVICE_LOCAL_ADDRESS_IPV6, exiting")
 			return
 		}
-		slog.Info("Using the IPv6 Prefix to construct the IPv6 Address")
+		rootLogger.Info("Using the IPv6 Prefix to construct the IPv6 Address")
 	}
 
-	startPollServer(updater.In, &localIp)
-	startPushServer(updater.In, &localIp, cancel)
+	bind := os.Getenv("METRICS_BIND")
+	pollStatus := polling.StartPollServer(updater.In, &localIp, rootLogger)
+	pushStatus := startPushServer(updater.In, &localIp, rootLogger, cancel)
+	status := util.Status{
+		Push:    pushStatus,
+		Poll:    pollStatus,
+		Updates: updateStatus,
+	}
+	if bind != "" {
+		token := os.Getenv("METRICS_TOKEN")
+		startMetricsServer(bind, rootLogger, status, token, cancel)
+	}
 
 	// Create a OS signal shutdown channel
 	shutdown := make(chan os.Signal)
@@ -52,53 +63,19 @@ func main() {
 	// Wait for either the context to finish or the shutdown signal
 	select {
 	case <-ctx.Done():
-		slog.Error("Context closed", logging.ErrorAttr(context.Cause(ctx)))
+		rootLogger.Error("Context closed", util.ErrorAttr(context.Cause(ctx)))
 		os.Exit(1)
 	case <-shutdown:
 		break
 	}
 
-	slog.Info("Shutdown detected")
+	rootLogger.Info("Shutdown detected")
 }
 
-func newFritzBox() *avm.FritzBox {
-	fb := avm.NewFritzBox()
-
-	// Import FritzBox endpoint url
-	endpointUrl := os.Getenv("FRITZBOX_ENDPOINT_URL")
-
-	if endpointUrl != "" {
-		v, err := url.ParseRequestURI(endpointUrl)
-
-		if err != nil {
-			slog.Error("Failed to parse env FRITZBOX_ENDPOINT_URL", logging.ErrorAttr(err))
-			panic(err)
-		}
-
-		fb.Url = strings.TrimRight(v.String(), "/")
-	} else {
-		slog.Info("Env FRITZBOX_ENDPOINT_URL not found, disabling FritzBox polling")
-		return nil
-	}
-
-	// Import FritzBox endpoint timeout setting
-	endpointTimeout := os.Getenv("FRITZBOX_ENDPOINT_TIMEOUT")
-
-	if endpointTimeout != "" {
-		v, err := time.ParseDuration(endpointTimeout)
-
-		if err != nil {
-			slog.Warn("Failed to parse FRITZBOX_ENDPOINT_TIMEOUT, using defaults", logging.ErrorAttr(err))
-		} else {
-			fb.Timeout = v
-		}
-	}
-
-	return fb
-}
-
-func newUpdater() *cloudflare.Updater {
-	u := cloudflare.NewUpdater(slog.Default())
+func newUpdater(logger *slog.Logger) (*cloudflare.Updater, []*util.UpdateStatus) {
+	const subsystem = "cf_updater"
+	logger = logger.With(util.SubsystemAttr(subsystem))
+	u := cloudflare.NewUpdater(slog.Default().With(util.SubsystemAttr(subsystem)), subsystem)
 
 	token := os.Getenv("CLOUDFLARE_API_TOKEN")
 	email := os.Getenv("CLOUDFLARE_API_EMAIL")
@@ -106,10 +83,10 @@ func newUpdater() *cloudflare.Updater {
 
 	if token == "" {
 		if email == "" || key == "" {
-			slog.Info("Env CLOUDFLARE_API_TOKEN not found, disabling Cloudflare updates")
-			return u
+			logger.Info("Env CLOUDFLARE_API_TOKEN not found, disabling Cloudflare updates", util.SubsystemAttr(subsystem))
+			return u, nil
 		} else {
-			slog.Warn("Using deprecated credentials via the API key")
+			logger.Warn("Using deprecated credentials via the API key")
 		}
 	}
 
@@ -117,8 +94,8 @@ func newUpdater() *cloudflare.Updater {
 	ipv6Zone := os.Getenv("CLOUDFLARE_ZONES_IPV6")
 
 	if ipv4Zone == "" && ipv6Zone == "" {
-		slog.Warn("Env CLOUDFLARE_ZONES_IPV4 and CLOUDFLARE_ZONES_IPV6 not found, disabling Cloudflare updates")
-		return u
+		logger.Warn("Env CLOUDFLARE_ZONES_IPV4 and CLOUDFLARE_ZONES_IPV6 not found, disabling Cloudflare updates", util.SubsystemAttr(subsystem))
+		return u, nil
 	}
 
 	if ipv4Zone != "" {
@@ -130,145 +107,110 @@ func newUpdater() *cloudflare.Updater {
 	}
 
 	var err error
+	var status []*util.UpdateStatus
 
 	if token != "" {
-		err = u.InitWithToken(token)
+		err, status = u.InitWithToken(token)
 	} else {
-		err = u.InitWithKey(email, key)
+		err, status = u.InitWithKey(email, key)
 	}
 
 	if err != nil {
-		slog.Error("Failed to init Cloudflare updater, disabling Cloudflare updates")
-		return u
+		logger.Error("Failed to init Cloudflare updater, disabling Cloudflare updates")
+		os.Exit(1)
 	}
 
-	return u
+	return u, status
 }
 
-func startPushServer(out chan<- *net.IP, localIp *net.IP, cancel context.CancelCauseFunc) {
+func startPushServer(out chan<- *net.IP, localIp *net.IP, logger *slog.Logger, cancel context.CancelCauseFunc) *util.PushStatus {
+	const subsystem = "push_server"
+	logger = logger.With(util.SubsystemAttr(subsystem))
 	bind := os.Getenv("DYNDNS_SERVER_BIND")
 
 	if bind == "" {
-		slog.Info("Env DYNDNS_SERVER_BIND not found, disabling DynDns server")
-		return
+		logger.Info("Env DYNDNS_SERVER_BIND not found, disabling DynDns server")
+		return nil
 	}
 
-	server := dyndns.NewServer(out, localIp, slog.Default())
+	status := util.PushStatus{
+		Succeeded: true,
+	}
+
+	server := dyndns.NewServer(out, localIp, logger, subsystem, &status)
 	server.Username = os.Getenv("DYNDNS_SERVER_USERNAME")
 	server.Password = os.Getenv("DYNDNS_SERVER_PASSWORD")
 
+	pushMux := http.NewServeMux()
+
+	pushMux.HandleFunc("/ip", server.Handler)
+
 	s := &http.Server{
 		Addr:     bind,
-		ErrorLog: slog.NewLogLogger(slog.Default().Handler(), slog.LevelError),
+		ErrorLog: slog.NewLogLogger(logger.Handler(), slog.LevelError),
+		Handler:  pushMux,
 	}
-
-	http.HandleFunc("/ip", server.Handler)
 
 	go func() {
 		err := s.ListenAndServe()
 		cancel(errors.Join(errors.New("http server error"), err))
 	}()
+
+	logger.Info("DynDns server started", slog.String("addr", bind))
+
+	return &status
 }
 
-func startPollServer(out chan<- *net.IP, localIp *net.IP) {
-	fritzbox := newFritzBox()
+func startMetricsServer(bind string, logger *slog.Logger, status util.Status, token string, cancel context.CancelCauseFunc) {
+	const subsystem = "metrics"
+	logger = logger.With(util.SubsystemAttr(subsystem))
+	metricsMux := http.NewServeMux()
+	metricsMux.Handle("/metrics", promhttp.Handler())
+	metricsMux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		if status.Poll != nil && !status.Poll.Succeeded {
+			w.WriteHeader(http.StatusServiceUnavailable)
+		} else if status.Push != nil && !status.Push.Succeeded {
+			w.WriteHeader(http.StatusServiceUnavailable)
+		} else if status.Updates != nil {
+			anyUnsuccessful := false
+			for _, u := range status.Updates {
+				if !u.Succeeded {
+					anyUnsuccessful = true
+					break
+				}
+			}
 
-	// Import endpoint polling interval duration
-	interval := os.Getenv("FRITZBOX_ENDPOINT_INTERVAL")
-	useIpv4 := os.Getenv("CLOUDFLARE_ZONES_IPV4") != ""
-	useIpv6 := os.Getenv("CLOUDFLARE_ZONES_IPV6") != ""
-
-	var ticker *time.Ticker
-
-	if interval != "" {
-		v, err := time.ParseDuration(interval)
-
-		if err != nil {
-			slog.Warn("Failed to parse FRITZBOX_ENDPOINT_INTERVAL, using defaults", logging.ErrorAttr(err))
-			ticker = time.NewTicker(300 * time.Second)
-		} else {
-			ticker = time.NewTicker(v)
+			if anyUnsuccessful {
+				w.WriteHeader(http.StatusServiceUnavailable)
+			} else {
+				w.WriteHeader(http.StatusOK)
+			}
 		}
+		encoder := json.NewEncoder(w)
+		err := encoder.Encode(status)
+		if err != nil {
+			logger.Error("Failed to encode health check response", util.ErrorAttr(err))
+			return
+		}
+	})
+
+	metricServer := &http.Server{
+		Addr:     bind,
+		ErrorLog: slog.NewLogLogger(logger.Handler(), slog.LevelError),
+	}
+
+	if token == "" {
+		metricServer.Handler = metricsMux
 	} else {
-		slog.Info("Env FRITZBOX_ENDPOINT_INTERVAL not found, disabling polling")
-		return
+		tokenHandler := util.NewTokenHandler(metricsMux, token)
+		metricServer.Handler = tokenHandler
 	}
 
 	go func() {
-		lastV4 := net.IP{}
-		lastV6 := net.IP{}
-
-		poll := func() {
-			slog.Debug("Polling WAN IPs from router")
-
-			if useIpv4 {
-				ipv4, err := fritzbox.GetWanIpv4()
-
-				if err != nil {
-					slog.Warn("Failed to poll WAN IPv4 from router", logging.ErrorAttr(err))
-				} else {
-					out <- &ipv4
-					if !lastV4.Equal(ipv4) {
-						slog.Info("New WAN IPv4 found", slog.Any("ipv4", ipv4))
-						lastV4 = ipv4
-					}
-				}
-			}
-
-			if *localIp == nil && useIpv6 {
-				ipv6, err := fritzbox.GetwanIpv6()
-
-				if err != nil {
-					slog.Warn("Failed to poll WAN IPv6 from router", logging.ErrorAttr(err))
-				} else {
-					if !lastV6.Equal(ipv6) {
-						slog.Info("New WAN IPv6 found", slog.Any("ipv6", ipv6))
-						out <- &ipv6
-						lastV6 = ipv6
-					}
-				}
-			} else if useIpv6 {
-				prefix, err := fritzbox.GetIpv6Prefix()
-
-				if err != nil {
-					slog.Warn("Failed to poll IPv6 Prefix from router", logging.ErrorAttr(err))
-				} else {
-					constructedIp := make(net.IP, net.IPv6len)
-					copy(constructedIp, prefix.IP)
-
-					maskLen, _ := prefix.Mask.Size()
-
-					for i := 0; i < net.IPv6len; i++ {
-						b := constructedIp[i]
-						lb := (*localIp)[i]
-						var mask byte = 0b00000000
-						for j := 0; j < 8; j++ {
-							if (i*8 + j) >= maskLen {
-								mask += 0b00000001 << (7 - j)
-							}
-						}
-						b += lb & mask
-						constructedIp[i] = b
-					}
-
-					slog.Info("New IPv6 Prefix found", slog.Any("prefix", prefix), slog.Any("ipv6", constructedIp))
-
-					out <- &constructedIp
-
-					if !lastV6.Equal(prefix.IP) {
-						lastV6 = prefix.IP
-					}
-				}
-			}
-		}
-
-		poll()
-
-		for {
-			select {
-			case <-ticker.C:
-				poll()
-			}
-		}
+		err := metricServer.ListenAndServe()
+		cancel(errors.Join(errors.New("metrics http server error"), err))
 	}()
+
+	logger.Info("metrics server started", slog.String("addr", bind))
 }

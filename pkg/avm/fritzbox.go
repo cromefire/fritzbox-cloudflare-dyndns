@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"log/slog"
 	"net"
 	"net/http"
 	"time"
@@ -12,12 +13,14 @@ import (
 type FritzBox struct {
 	Url     string
 	Timeout time.Duration
+	Logger  *slog.Logger
 }
 
-func NewFritzBox() *FritzBox {
+func NewFritzBox(logger *slog.Logger) *FritzBox {
 	return &FritzBox{
 		Url:     "http://fritz.box:49000",
 		Timeout: 5 * time.Second,
+		Logger:  logger,
 	}
 }
 

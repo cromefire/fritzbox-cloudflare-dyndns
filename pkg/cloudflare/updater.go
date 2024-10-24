@@ -200,7 +200,6 @@ func (u *Updater) spawnWorker() {
 						Content: ip.String(),
 						Proxied: &proxied,
 						TTL:     120,
-						ZoneID:  action.CfZoneId,
 					})
 
 					if err != nil {

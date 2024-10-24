@@ -126,12 +126,6 @@ like `::1234:5678:90ab:cdef` to `::1:1234:5678:90ab:cdef`
 |---------------------------|-------------------------------------------------|
 | DEVICE_LOCAL_ADDRESS_IPV6 | required, enter the local part of the device IP |
 
-## Secrets
-
-Each secret can be passed either as an environment variable directly, or via a file.
-In order to pass a secret via a file, append `_FILE` to the respective environment variable name and configure it to point to the file containing the secret.
-For example in order to pass the Cloudflare API token via a file, configure an environment variable with name `CLOUDFLARE_API_TOKEN_FILE` with the absolute path to a file containing the secret.
-
 ## Docker compose setup
 
 Here is an example `docker-compose.yml` with all features activated:
@@ -158,6 +152,37 @@ services:
 Now we could configure the FRITZ!Box
 to `http://[docker-host-ip]:49000/ip?v4=<ipaddr>&v6=<ip6addr>&prefix=<ip6lanprefix>` and it should trigger the update
 process.
+
+## Passing secrets
+
+As shown above, secrets can be passed via environment variables.
+If passing secrets via environment variables does not work for your use case, it's also possible to pass them via the filesystem.
+In order to pass a secret via a file, append `_FILE` to the respective environment variable name and configure it to point to the file containing the secret.
+For example in order to pass the Cloudflare API token via a file, configure an environment variable with name `CLOUDFLARE_API_TOKEN_FILE` with the absolute path to a file containing the secret.
+
+Here is an example `docker-compose.yml` passing the file `cloudflare_api_key.txt` from the host to the docker container using docker compose secrets:
+
+```
+version: '3.7'
+
+services:
+  updater:
+    image: ghcr.io/cromefire/fritzbox-cloudflare-dyndns:1
+    network_mode: host
+    environment:
+      - DYNDNS_SERVER_BIND=:8080
+      - CLOUDFLARE_API_KEY_FILE=/run/secrets/cloudflare_api_key
+      - CLOUDFLARE_ZONES_IPV4=test.example.com
+      - CLOUDFLARE_ZONES_IPV6=test.example.com
+    secrets:
+      - cloudflare_api_key
+
+secrets:
+  cloudflare_api_key:
+    file: ./cloudflare_api_key.txt
+```
+
+See https://docs.docker.com/compose/how-tos/use-secrets/ for more information about docker compose secrets.
 
 ## Docker build
 

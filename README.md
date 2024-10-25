@@ -40,21 +40,22 @@ You can use this strategy if you have:
 
 In your `.env` file or your system environment variables you can be configured:
 
-| Variable name          | Description                                          |
-|------------------------|------------------------------------------------------|
-| DYNDNS_SERVER_BIND     | required, network interface to bind to, i.e. `:8080` |
-| DYNDNS_SERVER_USERNAME | optional, username for the DynDNS service            |
-| DYNDNS_SERVER_PASSWORD | optional, password for the DynDNS service            |
+| Variable name               | Description                                                                                                                          |
+|-----------------------------|--------------------------------------------------------------------------------------------------------------------------------------|
+| DYNDNS_SERVER_BIND          | required, network interface to bind to, i.e. `:8080`.                                                                                |
+| DYNDNS_SERVER_USERNAME      | optional, username for the DynDNS service.                                                                                           |
+| DYNDNS_SERVER_PASSWORD      | optional, password for the DynDNS service.                                                                                           |
+| DYNDNS_SERVER_PASSWORD_FILE | optional, path to a file containing the password for the DynDNS service. It's recommended to use this over `DYNDNS_SERVER_PASSWORD`. |
 
 Now configure the FRITZ!Box router to push IP changes towards this service. Log into the admin panel and go to
 `Internet > Shares > DynDNS tab` and setup a  `Custom` provider:
 
-| Property   | Description / Value                                                                   |
-|------------|---------------------------------------------------------------------------------------|
-| Update-URL | http://[server-ip]/ip?v4=\<ipaddr\>&v6=\<ip6addr\>&prefix=\<ip6lanprefix\>            |
-| Domain     | Enter at least one domain name so the router can probe if the update was successfully |
-| Username   | Enter '_' if  `DYNDNS_SERVER_USERNAME` env is unset                                   |
-| Password   | Enter '_' if `DYNDNS_SERVER_PASSWORD` env is unset                                    |
+| Property   | Description / Value                                                                    |
+|------------|----------------------------------------------------------------------------------------|
+| Update-URL | http://[server-ip]/ip?v4=\<ipaddr\>&v6=\<ip6addr\>&prefix=\<ip6lanprefix\>             |
+| Domain     | Enter at least one domain name so the router can probe if the update was successfully. |
+| Username   | Enter '_' if  `DYNDNS_SERVER_USERNAME` is unset.                                       |
+| Password   | Enter '_' if `DYNDNS_SERVER_PASSWORD` and `DYNDNS_SERVER_PASSWORD_FILE` are unset.     |
 
 If you specified credentials you need to append them as additional GET parameters into the Update-URL
 like `&username=<username>&password=<pass>`.
@@ -73,7 +74,7 @@ In your `.env` file or your system environment variables you can be configured:
 |----------------------------|--------------------------------------------------------------------------------------------------------|
 | FRITZBOX_ENDPOINT_URL      | optional, how can we reach the router, i.e. `http://fritz.box:49000`, the port should be 49000 anyway. |
 | FRITZBOX_ENDPOINT_TIMEOUT  | optional, a duration we give the router to respond, i.e. `10s`.                                        |
-| FRITZBOX_ENDPOINT_INTERVAL | optional, a duration how often we want to poll the WAN IPs from the router, i.e. `120s`                |
+| FRITZBOX_ENDPOINT_INTERVAL | optional, a duration how often we want to poll the WAN IPs from the router, i.e. `120s`.               |
 
 You can try the endpoint URL in the browser to make sure you have the correct port, you should receive
 an `404 ERR_NOT_FOUND`.
@@ -90,13 +91,15 @@ to the config, you won't be able to see it again.
 
 In your `.env` file or your system environment variables you can be configured:
 
-| Variable name         | Description                                                       |
-|-----------------------|-------------------------------------------------------------------|
-| CLOUDFLARE_API_TOKEN  | required, your Cloudflare API Token                               |
-| CLOUDFLARE_ZONES_IPV4 | comma-separated list of domains to update with new IPv4 addresses |
-| CLOUDFLARE_ZONES_IPV6 | comma-separated list of domains to update with new IPv6 addresses |
-| CLOUDFLARE_API_EMAIL  | deprecated, your Cloudflare account email                         |
-| CLOUDFLARE_API_KEY    | deprecated, your Cloudflare Global API key                        |
+| Variable name             | Description                                                                                                                                                 |
+|---------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| CLOUDFLARE_API_TOKEN      | required if `CLOUDFLARE_API_TOKEN_FILE` is unset, your Cloudflare API Token.                                                                                |
+| CLOUDFLARE_API_TOKEN_FILE | required if `CLOUDFLARE_API_TOKEN` is unset, path to a file containing your Cloudflare API Token. It's recommended to use this over `CLOUDFLARE_API_TOKEN`. |
+| CLOUDFLARE_ZONES_IPV4     | comma-separated list of domains to update with new IPv4 addresses.                                                                                          |
+| CLOUDFLARE_ZONES_IPV6     | comma-separated list of domains to update with new IPv6 addresses.                                                                                          |
+| CLOUDFLARE_API_EMAIL      | deprecated, your Cloudflare account email.                                                                                                                  |
+| CLOUDFLARE_API_KEY        | deprecated, your Cloudflare Global API key.                                                                                                                 |
+| CLOUDFLARE_API_KEY_FILE   | deprecated, path to a file containing your Cloudflare Global API key.                                                                                       |
 
 This service allows to update multiple records, an advanced example would be:
 

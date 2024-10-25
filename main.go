@@ -287,7 +287,7 @@ func readSecret(envName string) string {
 		if err != nil {
 			slog.Error("Failed to read secret from file "+passwordFilePath, logging.ErrorAttr(err))
 		} else {
-			secret = string(content)
+			secret = strings.TrimSuffix(strings.TrimSuffix(string(content), "\r\n"), "\n")
 		}
 	}
 	return secret

@@ -174,15 +174,19 @@ services:
     network_mode: host
     environment:
       - DYNDNS_SERVER_BIND=:8080
-      - CLOUDFLARE_API_KEY_FILE=/run/secrets/cloudflare_api_key
+      - CLOUDFLARE_API_TOKEN_FILE=/run/secrets/cloudflare_api_token
+      - DYNDNS_SERVER_PASSWORD_FILE=/run/secrets/fb_server_password
       - CLOUDFLARE_ZONES_IPV4=test.example.com
       - CLOUDFLARE_ZONES_IPV6=test.example.com
     secrets:
-      - cloudflare_api_key
+      - cloudflare_api_token
+      - fb_server_password
 
 secrets:
-  cloudflare_api_key:
-    file: ./cloudflare_api_key.txt
+  cloudflare_api_token:
+    file: ./cloudflare_api_token.txt
+  fb_server_password:
+    file: ./fb_server_password.txt
 ```
 
 See https://docs.docker.com/compose/how-tos/use-secrets/ for more information about docker compose secrets.

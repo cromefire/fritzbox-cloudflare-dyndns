@@ -100,9 +100,9 @@ func newFritzBox() *avm.FritzBox {
 func newUpdater() *cloudflare.Updater {
 	u := cloudflare.NewUpdater(slog.Default())
 
-	token := os.Getenv("CLOUDFLARE_API_TOKEN")
+	token := readSecret("CLOUDFLARE_API_TOKEN")
 	email := os.Getenv("CLOUDFLARE_API_EMAIL")
-	key := os.Getenv("CLOUDFLARE_API_KEY")
+	key := readSecret("CLOUDFLARE_API_KEY")
 
 	if token == "" {
 		if email == "" || key == "" {
@@ -155,7 +155,7 @@ func startPushServer(out chan<- *net.IP, localIp *net.IP, cancel context.CancelC
 
 	server := dyndns.NewServer(out, localIp, slog.Default())
 	server.Username = os.Getenv("DYNDNS_SERVER_USERNAME")
-	server.Password = os.Getenv("DYNDNS_SERVER_PASSWORD")
+	server.Password = readSecret("DYNDNS_SERVER_PASSWORD")
 
 	s := &http.Server{
 		Addr:     bind,
@@ -271,4 +271,24 @@ func startPollServer(out chan<- *net.IP, localIp *net.IP) {
 			}
 		}
 	}()
+}
+
+func readSecret(envName string) string {
+	secret := os.Getenv(envName)
+
+	if secret != "" {
+		slog.Info("Secret passed via environment variable " + envName + ". It's recommended to pass secrets via files, see https://github.com/cromefire/fritzbox-cloudflare-dyndns?tab=readme-ov-file#passing-secrets.")
+		return secret
+	}
+
+	passwordFilePath := os.Getenv(envName + "_FILE")
+	if passwordFilePath != "" {
+		content, err := os.ReadFile(passwordFilePath)
+		if err != nil {
+			slog.Error("Failed to read secret from file "+passwordFilePath, logging.ErrorAttr(err))
+		} else {
+			secret = strings.TrimSuffix(strings.TrimSuffix(string(content), "\r\n"), "\n")
+		}
+	}
+	return secret
 }

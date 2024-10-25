@@ -40,21 +40,22 @@ You can use this strategy if you have:
 
 In your `.env` file or your system environment variables you can be configured:
 
-| Variable name          | Description                                          |
-|------------------------|------------------------------------------------------|
-| DYNDNS_SERVER_BIND     | required, network interface to bind to, i.e. `:8080` |
-| DYNDNS_SERVER_USERNAME | optional, username for the DynDNS service            |
-| DYNDNS_SERVER_PASSWORD | optional, password for the DynDNS service            |
+| Variable name               | Description                                                                                                                          |
+|-----------------------------|--------------------------------------------------------------------------------------------------------------------------------------|
+| DYNDNS_SERVER_BIND          | required, network interface to bind to, i.e. `:8080`.                                                                                |
+| DYNDNS_SERVER_USERNAME      | optional, username for the DynDNS service.                                                                                           |
+| DYNDNS_SERVER_PASSWORD      | optional, password for the DynDNS service.                                                                                           |
+| DYNDNS_SERVER_PASSWORD_FILE | optional, path to a file containing the password for the DynDNS service. It's recommended to use this over `DYNDNS_SERVER_PASSWORD`. |
 
 Now configure the FRITZ!Box router to push IP changes towards this service. Log into the admin panel and go to
 `Internet > Shares > DynDNS tab` and setup a  `Custom` provider:
 
-| Property   | Description / Value                                                                   |
-|------------|---------------------------------------------------------------------------------------|
-| Update-URL | http://[server-ip]/ip?v4=\<ipaddr\>&v6=\<ip6addr\>&prefix=\<ip6lanprefix\>            |
-| Domain     | Enter at least one domain name so the router can probe if the update was successfully |
-| Username   | Enter '_' if  `DYNDNS_SERVER_USERNAME` env is unset                                   |
-| Password   | Enter '_' if `DYNDNS_SERVER_PASSWORD` env is unset                                    |
+| Property   | Description / Value                                                                    |
+|------------|----------------------------------------------------------------------------------------|
+| Update-URL | http://[server-ip]/ip?v4=\<ipaddr\>&v6=\<ip6addr\>&prefix=\<ip6lanprefix\>             |
+| Domain     | Enter at least one domain name so the router can probe if the update was successfully. |
+| Username   | Enter '_' if  `DYNDNS_SERVER_USERNAME` is unset.                                       |
+| Password   | Enter '_' if `DYNDNS_SERVER_PASSWORD` and `DYNDNS_SERVER_PASSWORD_FILE` are unset.     |
 
 If you specified credentials you need to append them as additional GET parameters into the Update-URL
 like `&username=<username>&password=<pass>`.
@@ -73,7 +74,7 @@ In your `.env` file or your system environment variables you can be configured:
 |----------------------------|--------------------------------------------------------------------------------------------------------|
 | FRITZBOX_ENDPOINT_URL      | optional, how can we reach the router, i.e. `http://fritz.box:49000`, the port should be 49000 anyway. |
 | FRITZBOX_ENDPOINT_TIMEOUT  | optional, a duration we give the router to respond, i.e. `10s`.                                        |
-| FRITZBOX_ENDPOINT_INTERVAL | optional, a duration how often we want to poll the WAN IPs from the router, i.e. `120s`                |
+| FRITZBOX_ENDPOINT_INTERVAL | optional, a duration how often we want to poll the WAN IPs from the router, i.e. `120s`.               |
 
 You can try the endpoint URL in the browser to make sure you have the correct port, you should receive
 an `404 ERR_NOT_FOUND`.
@@ -90,13 +91,15 @@ to the config, you won't be able to see it again.
 
 In your `.env` file or your system environment variables you can be configured:
 
-| Variable name         | Description                                                       |
-|-----------------------|-------------------------------------------------------------------|
-| CLOUDFLARE_API_TOKEN  | required, your Cloudflare API Token                               |
-| CLOUDFLARE_ZONES_IPV4 | comma-separated list of domains to update with new IPv4 addresses |
-| CLOUDFLARE_ZONES_IPV6 | comma-separated list of domains to update with new IPv6 addresses |
-| CLOUDFLARE_API_EMAIL  | deprecated, your Cloudflare account email                         |
-| CLOUDFLARE_API_KEY    | deprecated, your Cloudflare Global API key                        |
+| Variable name             | Description                                                                                                                                                 |
+|---------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| CLOUDFLARE_API_TOKEN      | required if `CLOUDFLARE_API_TOKEN_FILE` is unset, your Cloudflare API Token.                                                                                |
+| CLOUDFLARE_API_TOKEN_FILE | required if `CLOUDFLARE_API_TOKEN` is unset, path to a file containing your Cloudflare API Token. It's recommended to use this over `CLOUDFLARE_API_TOKEN`. |
+| CLOUDFLARE_ZONES_IPV4     | comma-separated list of domains to update with new IPv4 addresses.                                                                                          |
+| CLOUDFLARE_ZONES_IPV6     | comma-separated list of domains to update with new IPv6 addresses.                                                                                          |
+| CLOUDFLARE_API_EMAIL      | deprecated, your Cloudflare account email.                                                                                                                  |
+| CLOUDFLARE_API_KEY        | deprecated, your Cloudflare Global API key.                                                                                                                 |
+| CLOUDFLARE_API_KEY_FILE   | deprecated, path to a file containing your Cloudflare Global API key.                                                                                       |
 
 This service allows to update multiple records, an advanced example would be:
 
@@ -152,6 +155,41 @@ services:
 Now we could configure the FRITZ!Box
 to `http://[docker-host-ip]:49000/ip?v4=<ipaddr>&v6=<ip6addr>&prefix=<ip6lanprefix>` and it should trigger the update
 process.
+
+## Passing secrets
+
+As shown above, secrets can be passed via environment variables.
+If passing secrets via environment variables does not work for your use case, it's also possible to pass them via the filesystem.
+In order to pass a secret via a file, append `_FILE` to the respective environment variable name and configure it to point to the file containing the secret.
+For example in order to pass the Cloudflare API token via a file, configure an environment variable with name `CLOUDFLARE_API_TOKEN_FILE` with the absolute path to a file containing the secret.
+
+Here is an example `docker-compose.yml` passing the file `cloudflare_api_key.txt` from the host to the docker container using docker compose secrets:
+
+```
+version: '3.7'
+
+services:
+  updater:
+    image: ghcr.io/cromefire/fritzbox-cloudflare-dyndns:1
+    network_mode: host
+    environment:
+      - DYNDNS_SERVER_BIND=:8080
+      - CLOUDFLARE_API_TOKEN_FILE=/run/secrets/cloudflare_api_token
+      - DYNDNS_SERVER_PASSWORD_FILE=/run/secrets/fb_server_password
+      - CLOUDFLARE_ZONES_IPV4=test.example.com
+      - CLOUDFLARE_ZONES_IPV6=test.example.com
+    secrets:
+      - cloudflare_api_token
+      - fb_server_password
+
+secrets:
+  cloudflare_api_token:
+    file: ./cloudflare_api_token.txt
+  fb_server_password:
+    file: ./fb_server_password.txt
+```
+
+See https://docs.docker.com/compose/how-tos/use-secrets/ for more information about docker compose secrets.
 
 ## Docker build
 

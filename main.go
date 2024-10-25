@@ -78,9 +78,9 @@ func newUpdater(logger *slog.Logger) (*cloudflare.Updater, []*util.UpdateStatus)
 	logger = logger.With(util.SubsystemAttr(subsystem))
 	u := cloudflare.NewUpdater(slog.Default().With(util.SubsystemAttr(subsystem)), subsystem)
 
-	token := os.Getenv("CLOUDFLARE_API_TOKEN")
+	token := readSecret("CLOUDFLARE_API_TOKEN")
 	email := os.Getenv("CLOUDFLARE_API_EMAIL")
-	key := os.Getenv("CLOUDFLARE_API_KEY")
+	key := readSecret("CLOUDFLARE_API_KEY")
 
 	if token == "" {
 		if email == "" || key == "" {
@@ -140,7 +140,7 @@ func startPushServer(out chan<- *net.IP, localIp *net.IP, logger *slog.Logger, c
 
 	server := dyndns.NewServer(out, localIp, logger, subsystem, &status)
 	server.Username = os.Getenv("DYNDNS_SERVER_USERNAME")
-	server.Password = os.Getenv("DYNDNS_SERVER_PASSWORD")
+	server.Password = readSecret("DYNDNS_SERVER_PASSWORD")
 
 	pushMux := http.NewServeMux()
 
@@ -217,4 +217,24 @@ func startMetricsServer(bind string, logger *slog.Logger, status util.Status, to
 	}()
 
 	logger.Info("metrics server started", slog.String("addr", bind))
+}
+
+func readSecret(envName string) string {
+	secret := os.Getenv(envName)
+
+	if secret != "" {
+		slog.Info("Secret passed via environment variable " + envName + ". It's recommended to pass secrets via files, see https://github.com/cromefire/fritzbox-cloudflare-dyndns?tab=readme-ov-file#passing-secrets.")
+		return secret
+	}
+
+	passwordFilePath := os.Getenv(envName + "_FILE")
+	if passwordFilePath != "" {
+		content, err := os.ReadFile(passwordFilePath)
+		if err != nil {
+			slog.Error("Failed to read secret from file "+passwordFilePath, logging.ErrorAttr(err))
+		} else {
+			secret = strings.TrimSuffix(strings.TrimSuffix(string(content), "\r\n"), "\n")
+		}
+	}
+	return secret
 }

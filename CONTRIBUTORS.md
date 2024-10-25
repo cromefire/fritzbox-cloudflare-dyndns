@@ -2,5 +2,5 @@
 
 Contains work of the following people besides me:
 
-* [Cromefire_](https://github.com/cromefire)
+* [Adrian Rudnik](https://github.com/adrianrudnik)
 * [Benedikt Ritter](https://github.com/britter)

@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 )
 
@@ -231,7 +232,7 @@ func readSecret(envName string) string {
 	if passwordFilePath != "" {
 		content, err := os.ReadFile(passwordFilePath)
 		if err != nil {
-			slog.Error("Failed to read secret from file "+passwordFilePath, logging.ErrorAttr(err))
+			slog.Error("Failed to read secret from file "+passwordFilePath, util.ErrorAttr(err))
 		} else {
 			secret = strings.TrimSuffix(strings.TrimSuffix(string(content), "\r\n"), "\n")
 		}

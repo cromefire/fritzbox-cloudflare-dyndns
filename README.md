@@ -156,41 +156,6 @@ Now we could configure the FRITZ!Box
 to `http://[docker-host-ip]:49000/ip?v4=<ipaddr>&v6=<ip6addr>&prefix=<ip6lanprefix>` and it should trigger the update
 process.
 
-## Passing secrets
-
-As shown above, secrets can be passed via environment variables.
-If passing secrets via environment variables does not work for your use case, it's also possible to pass them via the filesystem.
-In order to pass a secret via a file, append `_FILE` to the respective environment variable name and configure it to point to the file containing the secret.
-For example in order to pass the Cloudflare API token via a file, configure an environment variable with name `CLOUDFLARE_API_TOKEN_FILE` with the absolute path to a file containing the secret.
-
-Here is an example `docker-compose.yml` passing the file `cloudflare_api_key.txt` from the host to the docker container using docker compose secrets:
-
-```
-version: '3.7'
-
-services:
-  updater:
-    image: ghcr.io/cromefire/fritzbox-cloudflare-dyndns:1
-    network_mode: host
-    environment:
-      - DYNDNS_SERVER_BIND=:8080
-      - CLOUDFLARE_API_TOKEN_FILE=/run/secrets/cloudflare_api_token
-      - DYNDNS_SERVER_PASSWORD_FILE=/run/secrets/fb_server_password
-      - CLOUDFLARE_ZONES_IPV4=test.example.com
-      - CLOUDFLARE_ZONES_IPV6=test.example.com
-    secrets:
-      - cloudflare_api_token
-      - fb_server_password
-
-secrets:
-  cloudflare_api_token:
-    file: ./cloudflare_api_token.txt
-  fb_server_password:
-    file: ./fb_server_password.txt
-```
-
-See https://docs.docker.com/compose/how-tos/use-secrets/ for more information about docker compose secrets.
-
 ## Docker build
 
 A pre-built docker image is also available on this
@@ -223,6 +188,40 @@ docker run --rm -it -p 8888:8080 fritzbox-cloudflare-dyndns
 
 If you leave `CLOUDFLARE_*` unconfigured, pushing to Cloudflare will be disabled for testing purposes, so try to
 trigger it by calling `http://127.0.0.1:8888/ip?v4=127.0.0.1&v6=::1` and review the logs.
+
+## Passing secrets
+
+As shown above, secrets can be passed via environment variables.
+If passing secrets via environment variables does not work for your use case, it's also possible to pass them via the filesystem.
+In order to pass a secret via a file, append `_FILE` to the respective environment variable name and configure it to point to the file containing the secret.
+For example in order to pass the Cloudflare API token via a file, configure an environment variable with name `CLOUDFLARE_API_TOKEN_FILE` with the absolute path to a file containing the secret.
+
+Here is an example `docker-compose.yml` passing the file `cloudflare_api_key.txt` from the host to the docker container using docker compose secrets:
+
+```yaml
+name: "dyndns"
+services:
+  updater:
+    image: ghcr.io/cromefire/fritzbox-cloudflare-dyndns:1
+    network_mode: host
+    environment:
+      - DYNDNS_SERVER_BIND=:8080
+      - CLOUDFLARE_API_TOKEN_FILE=/run/secrets/cloudflare_api_token
+      - DYNDNS_SERVER_PASSWORD_FILE=/run/secrets/fb_server_password
+      - CLOUDFLARE_ZONES_IPV4=test.example.com
+      - CLOUDFLARE_ZONES_IPV6=test.example.com
+    secrets:
+      - cloudflare_api_token
+      - fb_server_password
+
+secrets:
+  cloudflare_api_token:
+    file: ./cloudflare_api_token.txt
+  fb_server_password:
+    file: ./fb_server_password.txt
+```
+
+See https://docs.docker.com/compose/how-tos/use-secrets/ for more information about docker compose secrets.
 
 ## Metrics and Health Check
 

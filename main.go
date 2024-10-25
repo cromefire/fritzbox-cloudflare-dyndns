@@ -51,8 +51,7 @@ func main() {
 		Updates: updateStatus,
 	}
 	if bind != "" {
-		// TODO: Read from file
-		token := os.Getenv("METRICS_TOKEN")
+		token := readSecret("METRICS_TOKEN")
 		startMetricsServer(bind, rootLogger, status, token, cancel)
 	}
 

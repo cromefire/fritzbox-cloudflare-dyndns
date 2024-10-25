@@ -99,7 +99,7 @@ In your `.env` file or your system environment variables you can be configured:
 | CLOUDFLARE_ZONES_IPV6     | comma-separated list of domains to update with new IPv6 addresses.                                                                                          |
 | CLOUDFLARE_API_EMAIL      | deprecated, your Cloudflare account email.                                                                                                                  |
 | CLOUDFLARE_API_KEY        | deprecated, your Cloudflare Global API key.                                                                                                                 |
-| CLOUDFLARE_API_KEY_FILE   | deprecated, path to a file containing your Cloudflare Global API key.                                                                                       |
+| CLOUDFLARE_API_KEY_FILE   | deprecated, path to a file containing your Cloudflare Global API key. It's recommended to use this over `CLOUDFLARE_API_KEY`.                               |
 
 This service allows to update multiple records, an advanced example would be:
 
@@ -228,10 +228,11 @@ trigger it by calling `http://127.0.0.1:8888/ip?v4=127.0.0.1&v6=::1` and review 
 
 If you want to check whether the service is running correctly, you can configure these with the following variables:
 
-| Variable name | Description                                                  |
-|---------------|--------------------------------------------------------------|
-| METRICS_BIND  | required, network interface to bind to, i.e. `:9876`         |
-| METRICS_TOKEN | token that has to be passed to the endpoints to authenticate |
+| Variable name      | Description                                                                                                                                   |
+|--------------------|-----------------------------------------------------------------------------------------------------------------------------------------------|
+| METRICS_BIND       | required, network interface to bind to, i.e. `:9876`                                                                                          |
+| METRICS_TOKEN      | token that has to be passed to the endpoints to authenticate                                                                                  |
+| METRICS_TOKEN_FILE | path ot a file containing a token that has to be passed to the endpoints to authenticate.  It's recommended to use this over `METRICS_TOKEN`. |
 
 The endpoint for prometheus-compatible metrics is `/metrics`, the endpoint for the health check is `/healthz` and the
 endpoint for liveness is `/liveness` on the configured network bind.

@@ -277,6 +277,7 @@ func readSecret(envName string) string {
 	secret := os.Getenv(envName)
 
 	if secret != "" {
+		slog.Info("Secret passed via environment variable " + envName + ". It's recommended to pass secrets via files, see https://github.com/cromefire/fritzbox-cloudflare-dyndns?tab=readme-ov-file#passing-secrets.")
 		return secret
 	}
 

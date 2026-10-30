@@ -144,7 +144,9 @@ func (s *Server) Handler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if success {
-		w.WriteHeader(http.StatusAccepted)
+		// FRITZ!OS does not accept 202 as success: it shows the DynDNS
+		// status as an error and retries the update every hour.
+		w.WriteHeader(http.StatusOK)
 	} else {
 		w.WriteHeader(http.StatusBadRequest)
 	}
